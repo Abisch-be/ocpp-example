@@ -256,6 +256,18 @@ header {
 @keyframes sPulse { 0%,100%{opacity:1;} 50%{opacity:.5;} }
 @keyframes errFlash { 0%,100%{fill:#f87171;} 50%{fill:#fca5a5;opacity:.5;} }
 
+/* ── SCENARIO GROUPS ── */
+.scenario-group { display: flex; align-items: center; gap: 6px; }
+.group-label { font-size: 10px; color: var(--text-dim); text-transform: uppercase; letter-spacing: .8px; white-space: nowrap; }
+.group-sep { width: 1px; height: 28px; background: var(--border); flex-shrink: 0; margin: 0 4px; }
+.outage-btn {
+  padding: 8px 14px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--surface2); color: var(--text-dim); font-size: 13px;
+  cursor: pointer; transition: all .2s; white-space: nowrap; font-family: var(--sans);
+}
+.outage-btn:hover { border-color: var(--red); color: var(--red); }
+.outage-btn.active { background: #3f1010; border-color: var(--red); color: var(--red); font-weight: 600; }
+
 /* ── RESPONSIVE ── */
 @media (max-width: 960px) {
   .main { grid-template-columns: 1fr; grid-template-rows: 1fr auto; height: auto; }
@@ -310,12 +322,27 @@ header {
 
 <!-- SCENARIO BAR -->
 <div class="scenario-bar">
-  <span class="scenario-label">Szenario:</span>
-  <button class="scenario-btn" id="btn-0" onclick="runScenario(0)">1️⃣ Boot Notification</button>
-  <button class="scenario-btn" id="btn-1" onclick="runScenario(1)">2️⃣ Heartbeat</button>
-  <button class="scenario-btn" id="btn-2" onclick="runScenario(2)">3️⃣ Start Transaction</button>
-  <button class="scenario-btn" id="btn-3" onclick="runScenario(3)">4️⃣ Stop Transaction</button>
-  <button class="scenario-btn s-red" id="btn-4" onclick="runScenario(4)">5️⃣ Faulted State</button>
+  <div class="scenario-group">
+    <span class="group-label">Protokoll</span>
+    <button class="scenario-btn" id="btn-0" onclick="runScenario(0)">Boot</button>
+    <button class="scenario-btn" id="btn-1" onclick="runScenario(1)">Heartbeat</button>
+    <button class="scenario-btn s-red" id="btn-7" onclick="runScenario(7)">Fehler</button>
+  </div>
+  <div class="group-sep"></div>
+  <div class="scenario-group">
+    <span class="group-label">Ladestart</span>
+    <button class="scenario-btn" id="btn-2" onclick="runScenario(2)">RFID</button>
+    <button class="scenario-btn" id="btn-3" onclick="runScenario(3)">Remote</button>
+  </div>
+  <div class="group-sep"></div>
+  <div class="scenario-group">
+    <span class="group-label">Ladestop</span>
+    <button class="scenario-btn" id="btn-4" onclick="runScenario(4)">RFID</button>
+    <button class="scenario-btn" id="btn-5" onclick="runScenario(5)">Remote</button>
+    <button class="scenario-btn" id="btn-6" onclick="runScenario(6)">Unplug</button>
+  </div>
+  <div class="group-sep"></div>
+  <button class="outage-btn" id="outage-btn" onclick="toggleOutage()">📡 Internet trennen</button>
   <button class="stop-btn" onclick="stopAll()">✕ Stopp</button>
 </div>
 
@@ -459,6 +486,13 @@ header {
             <path d="M522 204 Q540 194 558 204" fill="none" stroke="#38bdf8" stroke-width="1" opacity=".45"/>
             <text x="540" y="238" text-anchor="middle" font-family="Inter,sans-serif" font-size="10" fill="#60a5fa" font-weight="600">WiFi / LAN</text>
           </g>
+          <!-- Offline indicator -->
+          <g id="net-offline" style="display:none">
+            <rect x="513" y="175" width="54" height="54" rx="6" fill="#0c1220" fill-opacity=".85"/>
+            <line x1="520" y1="182" x2="560" y2="222" stroke="#f87171" stroke-width="3.5" stroke-linecap="round"/>
+            <line x1="560" y1="182" x2="520" y2="222" stroke="#f87171" stroke-width="3.5" stroke-linecap="round"/>
+            <text x="540" y="244" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" fill="#f87171" font-weight="700">KEIN SIGNAL</text>
+          </g>
         </g>
 
         <!-- ══════════════════════════════════════ -->
@@ -514,7 +548,7 @@ header {
       <div class="step-icon" id="step-icon">💤</div>
       <div class="step-content">
         <div class="step-main" id="step-main">Bereit – wähle ein Szenario oben</div>
-        <div class="step-sub" id="step-sub">Klicke auf eine der 5 Schaltflächen, um den Ablauf zu sehen</div>
+        <div class="step-sub" id="step-sub">Klicke auf eines der 8 Szenarien oben, um den Ablauf zu sehen</div>
       </div>
       <div class="step-dots" id="step-dots"></div>
     </div>
@@ -560,6 +594,8 @@ let loopTimer = null;
 let batLevel = 60;
 let stepTotal = 0;
 let stepCurrent = 0;
+let isOffline = false;
+let queuedCallbacks = [];
 
 // Base durations (at speed=1)
 const PKT_DUR = 1800;   // ms one segment
@@ -592,6 +628,49 @@ function setNetwork(type) {
   logCard('info','📡','Verbindungstyp geändert',
     `Jetzt: ${type === 'mobile' ? 'Mobilfunk (4G/5G SIM-Karte)' : 'WiFi oder Netzwerkkabel (LAN)'}`,
     'Das OCPP-Protokoll funktioniert über beide Verbindungsarten genau gleich.', '');
+}
+
+// ═══════════════════════════
+// INTERNET OUTAGE
+// ═══════════════════════════
+function toggleOutage() {
+  isOffline = !isOffline;
+  if (isOffline) showOutage(); else hideOutage();
+}
+function showOutage() {
+  const btn = document.getElementById('outage-btn');
+  btn.classList.add('active');
+  btn.textContent = '📡 Internet verbinden';
+  ['al-cp-net','al-net-be'].forEach(id=>{
+    const el = document.getElementById(id);
+    el.style.display = '';
+    el.style.stroke = '#f87171';
+    el.style.strokeDasharray = '3 9';
+  });
+  document.getElementById('net-offline').style.display = '';
+  document.getElementById('be-dot').setAttribute('fill','#475569');
+  logCard('err','📡','Internetverbindung unterbrochen',
+    'Die Verbindung zum Backend-Server wurde getrennt. Pakete stauen sich an der Netzwerkgrenze.',
+    'Während des Ausfalls werden Nachrichten in eine Warteschlange gestellt.','');
+}
+function hideOutage() {
+  const btn = document.getElementById('outage-btn');
+  btn.classList.remove('active');
+  btn.textContent = '📡 Internet trennen';
+  ['al-cp-net','al-net-be'].forEach(id=>{
+    const el = document.getElementById(id);
+    el.style.stroke = '';
+    el.style.strokeDasharray = '';
+    el.style.display = 'none';
+  });
+  document.getElementById('net-offline').style.display = 'none';
+  document.getElementById('be-dot').setAttribute('fill','#34d399');
+  logCard('info','📡','Internetverbindung wiederhergestellt',
+    'Die Verbindung zum Backend-Server ist wieder aktiv.',
+    'Warteschlange wird jetzt abgearbeitet …','');
+  const queued = [...queuedCallbacks];
+  queuedCallbacks = [];
+  queued.forEach((cb, i) => sched(600 * (i + 1), cb));
 }
 
 // ═══════════════════════════
@@ -731,19 +810,55 @@ function pkt(x1,y1,x2,y2,color,label,delay,done) {
 
 // Request: CP → Net → Backend
 function req(label,delay,done) {
-  pkt(408,198,490,198,'#38bdf8',label,delay,()=>pkt(590,198,668,198,'#38bdf8',label,0,done));
+  if (isOffline) {
+    pkt(408,198,490,198,'#f87171','⚠ Queue',delay,()=>{
+      logCard('err','⚠',`Paket nicht zugestellt – Offline`,
+        `Das Paket „${label}" hat die Netzwerkgrenze nicht passiert. Wird in Warteschlange gestellt.`,
+        '','');
+      if(done) queuedCallbacks.push(done);
+    });
+  } else {
+    pkt(408,198,490,198,'#38bdf8',label,delay,()=>pkt(590,198,668,198,'#38bdf8',label,0,done));
+  }
 }
 // Response: Backend → Net → CP
 function res(label,delay,done) {
-  pkt(668,202,590,202,'#34d399',label,delay,()=>pkt(490,202,408,202,'#34d399',label,0,done));
+  if (isOffline) {
+    pkt(668,202,590,202,'#f87171','⚠ Queue',delay,()=>{
+      logCard('err','⚠',`Antwort nicht zugestellt – Offline`,
+        `Die Antwort „${label}" konnte das Internet nicht passieren. Wird in Warteschlange gestellt.`,
+        '','');
+      if(done) queuedCallbacks.push(done);
+    });
+  } else {
+    pkt(668,202,590,202,'#34d399',label,delay,()=>pkt(490,202,408,202,'#34d399',label,0,done));
+  }
 }
-// Error packet
+// Error packet (CP → Net → Backend, offline-aware)
 function err(label,delay,done) {
-  pkt(408,198,490,198,'#f87171',label,delay,()=>pkt(590,198,668,198,'#f87171',label,0,done));
+  if (isOffline) {
+    pkt(408,198,490,198,'#f87171','⚠ Queue',delay,()=>{
+      logCard('err','⚠',`Fehler nicht zugestellt – Offline`,
+        `Das Fehlerpaket „${label}" hat die Netzwerkgrenze nicht passiert. Wird in Warteschlange gestellt.`,
+        '','');
+      if(done) queuedCallbacks.push(done);
+    });
+  } else {
+    pkt(408,198,490,198,'#f87171',label,delay,()=>pkt(590,198,668,198,'#f87171',label,0,done));
+  }
 }
 // Backend → CP (push)
 function push(label,delay,done) {
-  pkt(668,202,590,202,'#fbbf24',label,delay,()=>pkt(490,202,408,202,'#fbbf24',label,0,done));
+  if (isOffline) {
+    pkt(668,202,590,202,'#f87171','⚠ Queue',delay,()=>{
+      logCard('err','⚠',`Server-Push nicht zugestellt – Offline`,
+        `Der Push „${label}" konnte das Internet nicht passieren. Wird in Warteschlange gestellt.`,
+        '','');
+      if(done) queuedCallbacks.push(done);
+    });
+  } else {
+    pkt(668,202,590,202,'#fbbf24',label,delay,()=>pkt(490,202,408,202,'#fbbf24',label,0,done));
+  }
 }
 
 function sched(delay,fn) { const t=setTimeout(fn,delay); timers.push(t); return t; }
@@ -791,6 +906,7 @@ function animLines(on) {
 function stopAll() {
   timers.forEach(clearTimeout); timers=[];
   if(loopTimer){clearTimeout(loopTimer);loopTimer=null;}
+  queuedCallbacks=[];
   document.getElementById('pkts').innerHTML='';
   animLines(false);
   document.querySelectorAll('.scenario-btn').forEach(b=>b.classList.remove('active'));
@@ -809,7 +925,7 @@ function runScenario(idx) {
   scenario=idx;
   document.getElementById(`btn-${idx}`).classList.add('active');
   animLines(true);
-  [scenarioBoot,scenarioHeartbeat,scenarioStart,scenarioStop,scenarioError][idx]();
+  [scenarioBoot,scenarioHeartbeat,scenarioStart,scenarioRemoteStart,scenarioStop,scenarioRemoteStop,scenarioUnplug,scenarioError][idx]();
 }
 
 // ═════════════════════════════════════════════
@@ -818,7 +934,6 @@ function runScenario(idx) {
 function scenarioBoot() {
   initDots(4);
   const gap = ms(STEP_GAP);
-  const pktD = ms(PKT_DUR)*2 + 200;
 
   setStep('🔌','Die Ladestation wird eingeschaltet …','Genau wie ein Handy nach dem Einschalten nach Netz sucht.',0);
   logCard('info','🔌','Die Ladesäule startet',
@@ -827,42 +942,35 @@ function scenarioBoot() {
 
   sched(gap, ()=>{
     setStep('📤','Ladesäule schickt eine Begrüßungsnachricht ans Backend','Das ist wie ein „Hallo, ich bin da!" beim ersten Einschalten.',1);
-    req('Hallo! Ich bin da', 0, null);
     logCard('req','📤','Begrüßungsnachricht (BootNotification)',
       '🏭 Ladesäule → ☁️ Server: „Hallo! Ich bin Modell CP-2000 von AcmeCo und bin gerade gestartet."',
       'Die Ladestation stellt sich vor: Hersteller, Modell und Software-Version. So weiß der Server, mit wem er es zu tun hat.',
       '[2,"001","BootNotification",{"chargePointModel":"CP-2000","chargePointVendor":"AcmeCo","firmwareVersion":"3.1.2"}]');
-  });
-
-  sched(gap + pktD, ()=>{
-    setStep('📥','Server antwortet: „Willkommen, alles okay!"','Die Verbindung steht – wie ein Handshake.',2);
-    res('Willkommen! ✓', 0, null);
-    logCard('res','📥','Server-Antwort: Akzeptiert',
-      '☁️ Server → 🏭 Ladesäule: „Alles klar! Es ist jetzt 10:00 Uhr. Melde dich alle 5 Minuten."',
-      'Der Server bestätigt: Alles gut. Er teilt auch die genaue Uhrzeit mit, damit die Ladestation ihre interne Uhr synchronisiert.',
-      '[3,"001",{"status":"Accepted","currentTime":"2026-03-10T10:00:00Z","heartbeatInterval":300}]');
-  });
-
-  sched(gap + pktD*2, ()=>{
-    setStep('📊','Ladesäule meldet den Zustand ihrer Ladepunkte','Damit weiß der Server sofort, ob Plätze frei sind.',3);
-    req('Ladepunkt 1: frei', 0, null);
-    setEvse(1,'free');
-    logCard('req','📊','Status der Ladepunkte gemeldet',
-      '🏭 Ladesäule → ☁️ Server: „Ladepunkt 1 ist frei und bereit."',
-      'So kann der Server in der App anzeigen, welche Ladesäulen gerade verfügbar sind.',
-      '[2,"002","StatusNotification",{"connectorId":1,"status":"Available","errorCode":"NoError"}]');
-  });
-
-  sched(gap + pktD*3, ()=>{
-    setStep('✅','Verbindungsaufbau erfolgreich – die Ladesäule ist online!','Ab jetzt kann ein Fahrzeug laden.',3);
-    res('Verstanden ✓', 0, ()=>{
-      setStep('✅','Fertig! Die Ladestation ist online und bereit.','Alle 5 Minuten sendet sie ein Lebenszeichen.',3);
-      document.getElementById('dot3').className='step-dot done';
+    req('Hallo! Ich bin da', 0, ()=>{
+      setStep('📥','Server antwortet: „Willkommen, alles okay!"','Die Verbindung steht – wie ein Handshake.',2);
+      logCard('res','📥','Server-Antwort: Akzeptiert',
+        '☁️ Server → 🏭 Ladesäule: „Alles klar! Es ist jetzt 10:00 Uhr. Melde dich alle 5 Minuten."',
+        'Der Server bestätigt: Alles gut. Er teilt auch die genaue Uhrzeit mit, damit die Ladestation ihre interne Uhr synchronisiert.',
+        '[3,"001",{"status":"Accepted","currentTime":"2026-03-10T10:00:00Z","heartbeatInterval":300}]');
+      res('Willkommen! ✓', 0, ()=>{
+        setStep('📊','Ladesäule meldet den Zustand ihrer Ladepunkte','Damit weiß der Server sofort, ob Plätze frei sind.',3);
+        setEvse(1,'free');
+        logCard('req','📊','Status der Ladepunkte gemeldet',
+          '🏭 Ladesäule → ☁️ Server: „Ladepunkt 1 ist frei und bereit."',
+          'So kann der Server in der App anzeigen, welche Ladesäulen gerade verfügbar sind.',
+          '[2,"002","StatusNotification",{"connectorId":1,"status":"Available","errorCode":"NoError"}]');
+        req('Ladepunkt 1: frei', 0, ()=>{
+          logCard('res','✅','Alles erledigt – Ladesäule ist bereit!',
+            '☁️ Server → 🏭 Ladesäule: „Status notiert."',
+            'Die Ladestation ist jetzt vollständig verbunden. In der App erscheint sie als „verfügbar".',
+            '[3,"002",{}]');
+          res('Verstanden ✓', 0, ()=>{
+            setStep('✅','Fertig! Die Ladestation ist online und bereit.','Alle 5 Minuten sendet sie ein Lebenszeichen.',3);
+            document.getElementById('dot3').className='step-dot done';
+          });
+        });
+      });
     });
-    logCard('res','✅','Alles erledigt – Ladesäule ist bereit!',
-      '☁️ Server → 🏭 Ladesäule: „Status notiert."',
-      'Die Ladestation ist jetzt vollständig verbunden. In der App erscheint sie als „verfügbar".',
-      '[3,"002",{}]');
   });
 }
 
@@ -872,8 +980,6 @@ function scenarioBoot() {
 function scenarioHeartbeat() {
   initDots(2);
   let count = 0;
-  const gap = ms(STEP_GAP);
-  const pktD = ms(PKT_DUR)*2 + 200;
 
   function beat() {
     if(scenario!==1) return;
@@ -883,40 +989,39 @@ function scenarioHeartbeat() {
       'Stell dir vor, du schickst jemandem alle 5 Minuten eine SMS: „Bin noch da!" – genau das macht die Ladestation.',
       'Antwortet der Server nicht mehr, weiß die Ladestation, dass die Verbindung unterbrochen ist.',
       '');
-
-    req(`💓 Bin da! (#${count})`, 0, null);
     logCard('req','💓',`Lebenszeichen #${count} gesendet`,
       `🏭 Ladesäule → ☁️ Server: „Hallo, ich bin noch aktiv!" (Nachricht Nummer ${count})`,
       'Das ist vollkommen normal – jede Ladestation macht das automatisch im Hintergrund.',
       `[2,"hb${count}","Heartbeat",{}]`);
-
-    sched(pktD, ()=>{
+    req(`💓 Bin da! (#${count})`, 0, ()=>{
       if(scenario!==1) return;
-      res(`✓ Uhrzeit sync`, 0, null);
       logCard('res','⏰',`Server antwortet auf Lebenszeichen #${count}`,
         `☁️ Server → 🏭 Ladesäule: „Ich höre dich! Es ist jetzt ${new Date().toLocaleTimeString('de-DE')} Uhr."`,
         'Als Bonus teilt der Server die aktuelle Uhrzeit mit, damit die Ladestation immer die richtige Zeit kennt.',
         `[3,"hb${count}",{"currentTime":"${new Date().toISOString()}"}]`);
-      setStep('✅',`Lebenszeichen #${count} bestätigt!`,`Nächstes Lebenszeichen in 5 Sekunden …`,1);
-      document.getElementById('dot0').className='step-dot done';
-      document.getElementById('dot1').className='step-dot done';
-      // reset for next
-      setTimeout(()=>{
-        document.getElementById('dot0').className='step-dot';
-        document.getElementById('dot1').className='step-dot';
-      }, ms(3000));
+      res(`✓ Uhrzeit sync`, 0, ()=>{
+        if(scenario!==1) return;
+        setStep('✅',`Lebenszeichen #${count} bestätigt!`,`Nächstes Lebenszeichen in 5 Sekunden …`,1);
+        document.getElementById('dot0').className='step-dot done';
+        document.getElementById('dot1').className='step-dot done';
+        sched(ms(3000), ()=>{
+          if(scenario!==1) return;
+          document.getElementById('dot0').className='step-dot';
+          document.getElementById('dot1').className='step-dot';
+          sched(ms(STEP_GAP), beat);
+        });
+      });
     });
   }
   beat();
 }
 
 // ═════════════════════════════════════════════
-// SZENARIO 2 – Auto anstecken & laden
+// SZENARIO 2 – Auto anstecken & laden (RFID)
 // ═════════════════════════════════════════════
 function scenarioStart() {
   initDots(6);
   const gap = ms(STEP_GAP);
-  const pktD = ms(PKT_DUR)*2 + 200;
   setBat(32);
 
   setStep('🚗','Das Auto fährt vor …','Der Fahrer sucht sich einen freien Ladepunkt.',0);
@@ -941,69 +1046,130 @@ function scenarioStart() {
 
   sched(gap*2 + ms(2000), ()=>{
     setStep('🔍','Ladestation fragt den Server: Darf dieser Nutzer laden?','Genau wie beim Kreditkarten-Check im Supermarkt.',2);
-    req('Darf er laden? →', 0, null);
     logCard('req','🔍','Berechtigungsprüfung (Authorize)',
       '🏭 Ladesäule → ☁️ Server: „Ist die Karte RFID-A1B2C3 berechtigt zu laden?"',
       'Wie beim Bezahlen mit Karte: Die Ladestation fragt beim Server nach, ob der Nutzer wirklich zahlen kann.',
       '[2,"003","Authorize",{"idTag":"RFID-A1B2C3"}]');
-  });
-
-  sched(gap*2 + ms(2000) + pktD, ()=>{
-    setStep('✅','Server antwortet: Ja, er darf laden!','Autorisierung erfolgreich.',3);
-    res('Ja, er darf! ✓', 0, null);
-    logCard('res','✅','Autorisierung erfolgreich',
-      '☁️ Server → 🏭 Ladesäule: „Ja! Diese Karte ist gültig. Ladevorgang freigegeben."',
-      'Wäre die Karte gesperrt oder das Guthaben leer, käme hier eine Ablehnung.',
-      '[3,"003",{"idTagInfo":{"status":"Accepted","expiryDate":"2026-12-31"}}]');
-  });
-
-  sched(gap*3 + ms(2000) + pktD, ()=>{
-    setStep('⚡','Ladevorgang startet! Strom fließt ins Auto.',`Aktueller Akku: ${batLevel}% – wird jetzt aufgeladen.`,4);
-    req('Ladestart! ⚡', 0, null);
-    setEvse(1,'charging'); setEvDot('lädt');
-    logCard('req','⚡','Ladestart-Meldung (StartTransaction)',
-      `🏭 Ladesäule → ☁️ Server: „Ladevorgang gestartet! Zählerstand beim Start: ${batLevel}%."`,
-      'Jetzt beginnt die Abrechnung. Der Server notiert genau, wann und wie viel Strom geflossen ist.',
-      `[2,"004","StartTransaction",{"connectorId":1,"idTag":"RFID-A1B2C3","meterStart":12450,"timestamp":"${new Date().toISOString()}"}]`);
-  });
-
-  sched(gap*4 + ms(2000) + pktD, ()=>{
-    res('Transaktion #9001 ✓', 0, ()=>{
-      logCard('res','🧾','Server bestätigt Ladestart',
-        '☁️ Server → 🏭 Ladesäule: „Alles notiert! Transaktion Nr. 9001 läuft."',
-        'Der Server vergibt eine Transaktionsnummer – ähnlich wie eine Quittungsnummer beim Einkaufen.',
-        '[3,"004",{"idTagInfo":{"status":"Accepted"},"transactionId":9001}]');
-      setStep('🔋','Laden läuft! Die Batterie füllt sich …','Akku: 32% → wird auf ~80% aufgeladen.',5);
-      // Animate battery
-      let pct = 32;
-      const chargeInt = setInterval(()=>{
-        if(scenario!==2||pct>=80){clearInterval(chargeInt);return;}
-        pct += 1; setBat(pct);
-      }, ms(400));
-      timers.push(0);
-      document.getElementById('dot5').className='step-dot active';
-
-      // MeterValues after a bit
-      loopTimer = setTimeout(()=>{
-        if(scenario!==2) return;
-        req('Messwert: 7,4 kW', 0, null);
-        logCard('req','📊','Aktueller Energieverbrauch (MeterValues)',
-          '🏭 Ladesäule → ☁️ Server: „Gerade fließen 7,4 Kilowatt – entspricht ca. 30 km Reichweite pro Stunde."',
-          'Die Ladestation sendet regelmäßig den aktuellen Stromverbrauch. So kann der Nutzer in der App den Fortschritt sehen.',
-          '[2,"005","MeterValues",{"connectorId":1,"transactionId":9001,"meterValue":[{"sampledValue":[{"value":"7.4","unit":"kW"}]}]}]');
-        sched(pktD, ()=>res('OK ✓', 0, null));
-      }, ms(8000));
+    req('Darf er laden? →', 0, ()=>{
+      setStep('✅','Server antwortet: Ja, er darf laden!','Autorisierung erfolgreich.',3);
+      logCard('res','✅','Autorisierung erfolgreich',
+        '☁️ Server → 🏭 Ladesäule: „Ja! Diese Karte ist gültig. Ladevorgang freigegeben."',
+        'Wäre die Karte gesperrt oder das Guthaben leer, käme hier eine Ablehnung.',
+        '[3,"003",{"idTagInfo":{"status":"Accepted","expiryDate":"2026-12-31"}}]');
+      res('Ja, er darf! ✓', 0, ()=>{
+        sched(gap, ()=>{
+          setStep('⚡','Ladevorgang startet! Strom fließt ins Auto.',`Aktueller Akku: ${batLevel}% – wird jetzt aufgeladen.`,4);
+          setEvse(1,'charging'); setEvDot('lädt');
+          logCard('req','⚡','Ladestart-Meldung (StartTransaction)',
+            `🏭 Ladesäule → ☁️ Server: „Ladevorgang gestartet! Zählerstand beim Start: ${batLevel}%."`,
+            'Jetzt beginnt die Abrechnung. Der Server notiert genau, wann und wie viel Strom geflossen ist.',
+            `[2,"004","StartTransaction",{"connectorId":1,"idTag":"RFID-A1B2C3","meterStart":12450,"timestamp":"${new Date().toISOString()}"}]`);
+          req('Ladestart! ⚡', 0, ()=>{
+            logCard('res','🧾','Server bestätigt Ladestart',
+              '☁️ Server → 🏭 Ladesäule: „Alles notiert! Transaktion Nr. 9001 läuft."',
+              'Der Server vergibt eine Transaktionsnummer – ähnlich wie eine Quittungsnummer beim Einkaufen.',
+              '[3,"004",{"idTagInfo":{"status":"Accepted"},"transactionId":9001}]');
+            res('Transaktion #9001 ✓', 0, ()=>{
+              setStep('🔋','Laden läuft! Die Batterie füllt sich …','Akku: 32% → wird auf ~80% aufgeladen.',5);
+              let pct = 32;
+              const chargeInt = setInterval(()=>{
+                if(scenario!==2||pct>=80){clearInterval(chargeInt);return;}
+                pct += 1; setBat(pct);
+              }, ms(400));
+              timers.push(0);
+              document.getElementById('dot5').className='step-dot active';
+              loopTimer = setTimeout(()=>{
+                if(scenario!==2) return;
+                logCard('req','📊','Aktueller Energieverbrauch (MeterValues)',
+                  '🏭 Ladesäule → ☁️ Server: „Gerade fließen 7,4 Kilowatt – entspricht ca. 30 km Reichweite pro Stunde."',
+                  'Die Ladestation sendet regelmäßig den aktuellen Stromverbrauch. So kann der Nutzer in der App den Fortschritt sehen.',
+                  '[2,"005","MeterValues",{"connectorId":1,"transactionId":9001,"meterValue":[{"sampledValue":[{"value":"7.4","unit":"kW"}]}]}]');
+                req('Messwert: 7,4 kW', 0, ()=>{
+                  if(scenario!==2) return;
+                  logCard('res','📊','Server bestätigt Messwert','☁️ Server: „OK, Messwert notiert."','','[3,"005",{}]');
+                  res('OK ✓', 0, null);
+                });
+              }, ms(8000));
+            });
+          });
+        });
+      });
     });
   });
 }
 
 // ═════════════════════════════════════════════
-// SZENARIO 3 – Laden beenden & zahlen
+// SZENARIO 3 – Ladestart via Remote
+// ═════════════════════════════════════════════
+function scenarioRemoteStart() {
+  initDots(6);
+  const gap = ms(STEP_GAP);
+  setBat(15); setCable(true); setEvse(1,'prep'); setEvDot('verbunden');
+
+  setStep('📱','Server initiiert Fernladestart …','Der Betreiber startet per App oder Zeitplan.',0);
+  logCard('info','📱','Ladestart per Fernsteuerung',
+    'Manchmal wird ein Ladevorgang vom Server aus gestartet – z.B. für Firmenwagen-Flotten oder Zeitplan-Laden.',
+    'Das nennt man „Remote Start". Der Server schickt einen Befehl an die Ladesäule.','');
+
+  sched(gap, ()=>{
+    setStep('📲','Server schickt Startbefehl an die Ladesäule','Genau wie ein Fernschalter.',1);
+    logCard('info','📲','Fernstart-Befehl (RemoteStartTransaction)',
+      '☁️ Server → 🏭 Ladesäule: „Starte Ladevorgang auf Ladepunkt 1 für Karte RFID-FLEET1!"',
+      'Der Server hat die Autorität, Ladevorgänge zu starten.',
+      '[2,"010","RemoteStartTransaction",{"connectorId":1,"idTag":"RFID-FLEET1"}]');
+    push('RemoteStart ▶', 0, ()=>{
+      setStep('✅','Ladesäule bestätigt den Startbefehl','Anfrage akzeptiert.',2);
+      logCard('req','✅','Ladesäule akzeptiert Fernstart',
+        '🏭 Ladesäule → ☁️ Server: „Startbefehl erhalten und akzeptiert."',
+        '',
+        '[3,"010",{"status":"Accepted"}]');
+      req('Accepted ✓', 0, ()=>{
+        setStep('📊','Ladesäule meldet: Ladepunkt wird vorbereitet','Status: Preparing.',3);
+        setEvse(1,'prep');
+        logCard('req','📊','Statusmeldung: Preparing',
+          '🏭 Ladesäule → ☁️ Server: „Ladepunkt 1 wird vorbereitet – Kabel erkannt."',
+          '',
+          '[2,"011","StatusNotification",{"connectorId":1,"status":"Preparing","errorCode":"NoError"}]');
+        req('Status: Preparing', 0, ()=>{
+          logCard('res','📊','Server bestätigt Status','☁️ Server: „Notiert."','','[3,"011",{}]');
+          res('Verstanden ✓', 0, ()=>{
+            sched(gap, ()=>{
+              setStep('⚡','Ladevorgang startet! Strom fließt.',`Akku: ${batLevel}% wird aufgeladen.`,4);
+              setEvse(1,'charging'); setEvDot('lädt');
+              logCard('req','⚡','Ladestart (StartTransaction)',
+                `🏭 Ladesäule → ☁️ Server: „Ladevorgang gestartet! Zählerstand beim Start: ${batLevel}%."`,
+                '',
+                `[2,"012","StartTransaction",{"connectorId":1,"idTag":"RFID-FLEET1","meterStart":5000,"timestamp":"${new Date().toISOString()}"}]`);
+              req('StartTransaction ⚡', 0, ()=>{
+                logCard('res','🧾','Server bestätigt Ladestart',
+                  '☁️ Server → 🏭 Ladesäule: „Transaktion #9002 gestartet."',
+                  '',
+                  '[3,"012",{"idTagInfo":{"status":"Accepted"},"transactionId":9002}]');
+                res('Transaktion #9002 ✓', 0, ()=>{
+                  setStep('🔋','Laden läuft! Ferngesteuerter Ladevorgang aktiv.','Akku füllt sich …',5);
+                  let pct = batLevel;
+                  const chargeInt = setInterval(()=>{
+                    if(scenario!==3||pct>=80){clearInterval(chargeInt);return;}
+                    pct += 1; setBat(pct);
+                  }, ms(400));
+                  timers.push(0);
+                  document.getElementById('dot5').className='step-dot active';
+                });
+              });
+            });
+          });
+        });
+      });
+    });
+  });
+}
+
+// ═════════════════════════════════════════════
+// SZENARIO 4 – Laden beenden & zahlen (RFID)
 // ═════════════════════════════════════════════
 function scenarioStop() {
   initDots(4);
   const gap = ms(STEP_GAP);
-  const pktD = ms(PKT_DUR)*2 + 200;
   setBat(81); setEvse(1,'charging'); setEvDot('lädt'); setCable(true);
 
   setStep('🛑','Der Fahrer möchte den Ladevorgang beenden …','Akku ist bei 81% – das reicht.',0);
@@ -1013,52 +1179,158 @@ function scenarioStop() {
 
   sched(gap, ()=>{
     setStep('📤','Ladestation schickt die Abschlussrechnung','Wie der Kassenzettel am Ende des Einkaufs.',1);
-    req('Abschluss senden', 0, null);
     setEvse(1,'prep');
     logCard('req','📤','Ladevorgang-Abschluss (StopTransaction)',
       '🏭 Ladesäule → ☁️ Server: „Ladevorgang beendet! Gesamtverbrauch: 12,4 kWh."',
       'Die Ladestation meldet: Start-Zählerstand, End-Zählerstand und Grund des Stopps. Daraus wird die Rechnung berechnet.',
       '[2,"006","StopTransaction",{"transactionId":9001,"idTag":"RFID-A1B2C3","meterStop":24850,"timestamp":"'+new Date().toISOString()+'","reason":"Local"}]');
-  });
-
-  sched(gap + pktD, ()=>{
-    setStep('🧮','Server berechnet die Kosten …','12,4 kWh × 0,45 €/kWh = 5,58 €',2);
-    res('Abgerechnet ✓', 0, null);
-    logCard('res','🧮','Abrechnung erstellt',
-      '☁️ Server → 🏭 Ladesäule: „Transaktion #9001 abgeschlossen. Kosten: 5,58 €. Rechnung wird per App zugestellt."',
-      '12,4 kWh verbraucht × 0,45 €/kWh = 5,58 € – der Betrag wird automatisch abgebucht oder per Rechnung zugesandt.',
-      '[3,"006",{"idTagInfo":{"status":"Accepted"}}]');
-  });
-
-  sched(gap*2 + pktD, ()=>{
-    setStep('🔌','Kabel wird gezogen – Ladepunkt wieder frei',`Akku jetzt bei ${batLevel}% – genug für ca. 300 km.`,3);
-    setCable(false); setEvse(1,'free'); setEvDot('bereit');
-    req('Ladepunkt wieder frei', 0, null);
-    logCard('req','🔓','Ladepunkt gibt sich frei (StatusNotification)',
-      '🏭 Ladesäule → ☁️ Server: „Kabel wurde gezogen. Ladepunkt 1 ist wieder für andere frei."',
-      'In der App wird der Ladepunkt sofort als „verfügbar" angezeigt – andere Nutzer können ihn buchen.',
-      '[2,"007","StatusNotification",{"connectorId":1,"status":"Available","errorCode":"NoError"}]');
-  });
-
-  sched(gap*2 + pktD*2, ()=>{
-    res('Verstanden ✓', 0, ()=>{
-      setStep('🎉','Fertig! Laden und Bezahlen abgeschlossen.','Quittung kommt per App oder E-Mail.',3);
-      document.getElementById('dot3').className='step-dot done';
+    req('Abschluss senden', 0, ()=>{
+      setStep('🧮','Server berechnet die Kosten …','12,4 kWh × 0,45 €/kWh = 5,58 €',2);
+      logCard('res','🧮','Abrechnung erstellt',
+        '☁️ Server → 🏭 Ladesäule: „Transaktion #9001 abgeschlossen. Kosten: 5,58 €. Rechnung wird per App zugestellt."',
+        '12,4 kWh verbraucht × 0,45 €/kWh = 5,58 € – der Betrag wird automatisch abgebucht oder per Rechnung zugesandt.',
+        '[3,"006",{"idTagInfo":{"status":"Accepted"}}]');
+      res('Abgerechnet ✓', 0, ()=>{
+        sched(gap, ()=>{
+          setStep('🔌','Kabel wird gezogen – Ladepunkt wieder frei',`Akku jetzt bei ${batLevel}% – genug für ca. 300 km.`,3);
+          setCable(false); setEvse(1,'free'); setEvDot('bereit');
+          logCard('req','🔓','Ladepunkt gibt sich frei (StatusNotification)',
+            '🏭 Ladesäule → ☁️ Server: „Kabel wurde gezogen. Ladepunkt 1 ist wieder für andere frei."',
+            'In der App wird der Ladepunkt sofort als „verfügbar" angezeigt – andere Nutzer können ihn buchen.',
+            '[2,"007","StatusNotification",{"connectorId":1,"status":"Available","errorCode":"NoError"}]');
+          req('Ladepunkt wieder frei', 0, ()=>{
+            logCard('res','🎉','Alles erledigt!',
+              '☁️ Server → 🏭 Ladesäule: „Alles notiert. Danke!"',
+              'Der Fahrer bekommt eine Quittung. Der Ladepunkt ist wieder frei. Perfekt abgelaufen.',
+              '[3,"007",{}]');
+            res('Verstanden ✓', 0, ()=>{
+              setStep('🎉','Fertig! Laden und Bezahlen abgeschlossen.','Quittung kommt per App oder E-Mail.',3);
+              document.getElementById('dot3').className='step-dot done';
+            });
+          });
+        });
+      });
     });
-    logCard('res','🎉','Alles erledigt!',
-      '☁️ Server → 🏭 Ladesäule: „Alles notiert. Danke!"',
-      'Der Fahrer bekommt eine Quittung. Der Ladepunkt ist wieder frei. Perfekt abgelaufen.',
-      '[3,"007",{}]');
   });
 }
 
 // ═════════════════════════════════════════════
-// SZENARIO 4 – Wenn etwas schiefgeht
+// SZENARIO 5 – Ladestop via Remote
+// ═════════════════════════════════════════════
+function scenarioRemoteStop() {
+  initDots(5);
+  const gap = ms(STEP_GAP);
+  setBat(75); setEvse(1,'charging'); setEvDot('lädt'); setCable(true);
+
+  setStep('🛑','Server beendet Ladevorgang per Fernsteuerung …','Z.B. Zeitfenster abgelaufen oder Limit erreicht.',0);
+  logCard('info','🛑','Ferngesteuerter Ladestopp',
+    'Der Server kann laufende Ladevorgänge von sich aus beenden – z.B. wenn das gebuchte Zeitfenster abläuft.',
+    'Das nennt man „Remote Stop".','');
+
+  sched(gap, ()=>{
+    setStep('📲','Server schickt Stoppbefehl an die Ladesäule','Fernsteuerung aktiv.',1);
+    logCard('info','📲','Fernstoppbefehl (RemoteStopTransaction)',
+      '☁️ Server → 🏭 Ladesäule: „Beende Transaktion #9001 sofort!"',
+      '',
+      '[2,"013","RemoteStopTransaction",{"transactionId":9001}]');
+    push('RemoteStop ⏹', 0, ()=>{
+      setStep('✅','Ladesäule akzeptiert Stoppbefehl','Ladevorgang wird beendet …',2);
+      setEvse(1,'prep');
+      logCard('req','✅','Ladesäule akzeptiert Fernstop',
+        '🏭 Ladesäule → ☁️ Server: „Stoppbefehl erhalten. Beende Transaktion #9001."',
+        '',
+        '[3,"013",{"status":"Accepted"}]');
+      req('Accepted ✓', 0, ()=>{
+        sched(gap, ()=>{
+          setStep('📤','Ladesäule sendet Abschlussrechnung','Wie beim manuellen Stopp.',3);
+          logCard('req','📤','Ladeabschluss (StopTransaction)',
+            '🏭 Ladesäule → ☁️ Server: „Transaktion #9001 beendet. Grund: Remote."',
+            '',
+            '[2,"014","StopTransaction",{"transactionId":9001,"meterStop":22000,"reason":"Remote","timestamp":"'+new Date().toISOString()+'"}]');
+          req('StopTransaction', 0, ()=>{
+            setStep('🧮','Server berechnet Kosten …','Automatische Abrechnung.',4);
+            logCard('res','🧮','Abrechnung abgeschlossen',
+              '☁️ Server → 🏭 Ladesäule: „Transaktion #9001 abgeschlossen. Kosten werden verbucht."',
+              '',
+              '[3,"014",{"idTagInfo":{"status":"Accepted"}}]');
+            res('Abgerechnet ✓', 0, ()=>{
+              setCable(false); setEvse(1,'free'); setEvDot('bereit');
+              logCard('req','🔓','Ladepunkt wieder frei (StatusNotification)',
+                '🏭 Ladesäule → ☁️ Server: „Ladepunkt 1 ist wieder frei."',
+                '',
+                '[2,"015","StatusNotification",{"connectorId":1,"status":"Available","errorCode":"NoError"}]');
+              req('Status: Available', 0, ()=>{
+                logCard('res','🎉','Fertig!','☁️ Server: „Alles notiert."','','[3,"015",{}]');
+                res('Verstanden ✓', 0, ()=>{
+                  setStep('🎉','Ferngesteuerter Ladestopp abgeschlossen!','Ladepunkt wieder frei.',4);
+                  document.getElementById('dot4').className='step-dot done';
+                });
+              });
+            });
+          });
+        });
+      });
+    });
+  });
+}
+
+// ═════════════════════════════════════════════
+// SZENARIO 6 – Ladestop via Unplug (EVDisconnected)
+// ═════════════════════════════════════════════
+function scenarioUnplug() {
+  initDots(4);
+  const gap = ms(STEP_GAP);
+  setBat(68); setEvse(1,'charging'); setEvDot('lädt'); setCable(true);
+
+  setStep('🔌','Kabel wird gezogen – ohne expliziten Stopp','Die Ladestation erkennt EVDisconnected automatisch.',0);
+  logCard('info','🔌','Laden durch Kabelzug beendet',
+    'Manchmal zieht der Fahrer einfach das Kabel raus, ohne auf „Stopp" zu drücken. Die Ladestation erkennt das sofort und handelt automatisch.',
+    'Das OCPP-Protokoll nennt das „EVDisconnected".','');
+
+  sched(gap, ()=>{
+    setStep('⚡→🔌','Kabel raus! Ladestation erkennt EVDisconnected.','Automatische Erkennung.',1);
+    setCable(false); setEvDot('bereit'); setEvse(1,'prep');
+    logCard('info','⚡','Kabelzug erkannt (EVDisconnected)',
+      'Das Fahrzeug wurde getrennt. Die Ladestation beendet jetzt automatisch die Transaktion.',
+      '','');
+  });
+
+  sched(gap*2, ()=>{
+    setStep('📤','Ladesäule meldet Transaktionsende','Grund: EVDisconnected.',2);
+    logCard('req','📤','Ladeabschluss (StopTransaction)',
+      '🏭 Ladesäule → ☁️ Server: „Transaktion beendet. Grund: Kabel wurde gezogen (EVDisconnected)."',
+      '',
+      '[2,"016","StopTransaction",{"transactionId":9001,"meterStop":18500,"reason":"EVDisconnected","timestamp":"'+new Date().toISOString()+'"}]');
+    req('StopTransaction', 0, ()=>{
+      setStep('🧮','Server berechnet Kosten …','Automatische Abrechnung.',3);
+      logCard('res','🧮','Abrechnung abgeschlossen',
+        '☁️ Server → 🏭 Ladesäule: „Transaktion abgeschlossen. Quittung wird zugestellt."',
+        '',
+        '[3,"016",{"idTagInfo":{"status":"Accepted"}}]');
+      res('Abgerechnet ✓', 0, ()=>{
+        setEvse(1,'free');
+        logCard('req','🔓','Ladepunkt wieder frei',
+          '🏭 Ladesäule → ☁️ Server: „Ladepunkt 1 ist wieder frei."',
+          '',
+          '[2,"017","StatusNotification",{"connectorId":1,"status":"Available","errorCode":"NoError"}]');
+        req('Status: Available', 0, ()=>{
+          logCard('res','✅','Fertig!','☁️ Server: „Alles notiert. Abrechnung läuft."','','[3,"017",{}]');
+          res('Verstanden ✓', 0, ()=>{
+            setStep('✅','Fertig! Ladevorgang durch Kabelzug beendet.','Automatisch korrekt abgerechnet.',3);
+            document.getElementById('dot3').className='step-dot done';
+          });
+        });
+      });
+    });
+  });
+}
+
+// ═════════════════════════════════════════════
+// SZENARIO 7 – Wenn etwas schiefgeht
 // ═════════════════════════════════════════════
 function scenarioError() {
   initDots(4);
   const gap = ms(STEP_GAP);
-  const pktD = ms(PKT_DUR)*2 + 200;
 
   setStep('⚠️','Achtung – ein Fehler wurde erkannt!','Das passiert selten, aber der Server wird sofort informiert.',0);
   logCard('info','⚠️','Was passiert bei einem Fehler?',
@@ -1067,40 +1339,36 @@ function scenarioError() {
 
   sched(gap, ()=>{
     setStep('🌡️','Überhitzung erkannt – Ladesäule schaltet sich sicher ab','Sicherheitsmechanismus aktiv.',1);
-    err('FEHLER gemeldet!', 0, null);
     setEvse(1,'error'); document.getElementById('be-dot').setAttribute('fill','#f87171');
     logCard('err','🌡️','Fehler erkannt: Überhitzung',
       '🏭 Ladesäule → ☁️ Server: „Achtung! Der Stecker ist zu heiß (95°C). Ich schalte mich ab."',
       'Die Ladesäule hat einen Temperatursensor. Bei Überhitzung stoppt sie automatisch, um einen Brand zu verhindern.',
       '[2,"008","StatusNotification",{"connectorId":1,"status":"Faulted","errorCode":"ConnectorLockFailure","info":"Temperature:95C"}]');
-  });
-
-  sched(gap + pktD, ()=>{
-    setStep('🚨','Server schlägt Alarm – Techniker wird benachrichtigt','Automatisch, ohne dass jemand etwas tun muss.',2);
-    res('Alarm ausgelöst!', 0, null);
-    logCard('err','🚨','Server löst Alarm aus',
-      '☁️ Server → Techniker-App: „Ladesäule CP-001, Ladepunkt 1: Überhitzung! Bitte sofort prüfen."',
-      'Der Betreiber bekommt eine Push-Nachricht, E-Mail oder SMS. Ein Ticket wird automatisch erstellt.',
-      '[3,"008",{}]  + interner Alert an Wartungs-Team');
-  });
-
-  sched(gap*2 + pktD, ()=>{
-    setStep('🔒','Server sperrt den Ladepunkt – bis ein Techniker kommt','Kein weiterer Ladevorgang möglich.',3);
-    push('Ladepunkt sperren', 0, null);
-    logCard('info','🔒','Fernsteuerung: Ladepunkt gesperrt',
-      '☁️ Server → 🏭 Ladesäule: „Schalte Ladepunkt 1 auf gesperrt. Kein weiteres Laden erlaubt."',
-      'Das Backend kann die Ladestation aus der Ferne steuern – wie ein Fernzugriff auf einen Computer.',
-      '[2,"009","ChangeAvailability",{"connectorId":1,"type":"Inoperative"}]');
-  });
-
-  sched(gap*2 + pktD*2, ()=>{
-    err('Gesperrt ✓', 0, ()=>{
-      setStep('🔧','Warten auf den Techniker …','Nach der Reparatur wird der Ladepunkt wieder freigegeben.',3);
-      document.getElementById('dot3').className='step-dot done';
-      logCard('err','🔧','Ladesäule außer Betrieb',
-        '🏭 Ladesäule bestätigt: „Bin gesperrt. Warte auf Wartung."',
-        'Die Säule leuchtet jetzt rot oder zeigt eine Fehlermeldung am Display. In der App erscheint sie als „nicht verfügbar".',
-        '[3,"009",{"status":"Accepted"}]');
+    err('FEHLER gemeldet!', 0, ()=>{
+      setStep('🚨','Server schlägt Alarm – Techniker wird benachrichtigt','Automatisch, ohne dass jemand etwas tun muss.',2);
+      logCard('err','🚨','Server löst Alarm aus',
+        '☁️ Server → Techniker-App: „Ladesäule CP-001, Ladepunkt 1: Überhitzung! Bitte sofort prüfen."',
+        'Der Betreiber bekommt eine Push-Nachricht, E-Mail oder SMS. Ein Ticket wird automatisch erstellt.',
+        '[3,"008",{}]  + interner Alert an Wartungs-Team');
+      res('Alarm ausgelöst!', 0, ()=>{
+        sched(gap, ()=>{
+          setStep('🔒','Server sperrt den Ladepunkt – bis ein Techniker kommt','Kein weiterer Ladevorgang möglich.',3);
+          logCard('info','🔒','Fernsteuerung: Ladepunkt gesperrt',
+            '☁️ Server → 🏭 Ladesäule: „Schalte Ladepunkt 1 auf gesperrt. Kein weiteres Laden erlaubt."',
+            'Das Backend kann die Ladestation aus der Ferne steuern – wie ein Fernzugriff auf einen Computer.',
+            '[2,"009","ChangeAvailability",{"connectorId":1,"type":"Inoperative"}]');
+          push('Ladepunkt sperren', 0, ()=>{
+            logCard('err','🔧','Ladesäule außer Betrieb',
+              '🏭 Ladesäule bestätigt: „Bin gesperrt. Warte auf Wartung."',
+              'Die Säule leuchtet jetzt rot oder zeigt eine Fehlermeldung am Display. In der App erscheint sie als „nicht verfügbar".',
+              '[3,"009",{"status":"Accepted"}]');
+            err('Gesperrt ✓', 0, ()=>{
+              setStep('🔧','Warten auf den Techniker …','Nach der Reparatur wird der Ladepunkt wieder freigegeben.',3);
+              document.getElementById('dot3').className='step-dot done';
+            });
+          });
+        });
+      });
     });
   });
 }
