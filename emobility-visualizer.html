@@ -154,7 +154,7 @@ header {
   display: flex; align-items: center; justify-content: space-between;
 }
 .log-title { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
-.log-live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); animation: livePulse 2s infinite; }
+.log-live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); animation: livePulse 2s; }
 @keyframes livePulse { 0%,100%{opacity:1;} 50%{opacity:.3;} }
 .log-clear { font-size: 11px; color: var(--text-dim); cursor: pointer; padding: 3px 10px; border-radius: 5px; border: 1px solid var(--border); background: none; transition: all .2s; font-family: var(--sans); }
 .log-clear:hover { color: var(--red); border-color: var(--red); }
@@ -247,12 +247,12 @@ header {
 .conn-line { stroke: var(--border); stroke-width: 2; fill: none; }
 .conn-anim {
   stroke: var(--accent); stroke-width: 2; fill: none;
-  stroke-dasharray: 10 14; animation: dashFlow 1.5s linear infinite;
+  stroke-dasharray: 10 14; animation: dashFlow 1.5s linear;
 }
-.conn-anim.wifi { stroke-dasharray: 5 5; animation: dashFlow .9s linear infinite; }
+.conn-anim.wifi { stroke-dasharray: 5 5; animation: dashFlow .9s linear; }
 @keyframes dashFlow { to { stroke-dashoffset: -24; } }
 
-.status-pulse { animation: sPulse 2.4s ease-in-out infinite; }
+.status-pulse { animation: sPulse 2.4s ease-in-out; }
 @keyframes sPulse { 0%,100%{opacity:1;} 50%{opacity:.5;} }
 @keyframes errFlash { 0%,100%{fill:#f87171;} 50%{fill:#fca5a5;opacity:.5;} }
 
@@ -756,7 +756,7 @@ function setEvse(n,status) {
   const lbl = {free:'frei',charging:'lädt ⚡',error:'FEHLER',busy:'belegt',prep:'bereit...'}[status]||status;
   const dot = document.getElementById(`evse${n}-dot`);
   const txt = document.getElementById(`evse${n}-lbl`);
-  if(dot){dot.setAttribute('fill',col); dot.style.animation = status==='error'?'errFlash .8s infinite':'';}
+  if(dot){dot.setAttribute('fill',col); dot.style.animation = status==='error'?'errFlash .8s':'';}
   if(txt) txt.textContent = lbl;
 }
 function setEvDot(status) {
@@ -858,8 +858,6 @@ function scenarioBoot() {
     res('Verstanden ✓', 0, ()=>{
       setStep('✅','Fertig! Die Ladestation ist online und bereit.','Alle 5 Minuten sendet sie ein Lebenszeichen.',3);
       document.getElementById('dot3').className='step-dot done';
-      // Auto-repeat
-      loopTimer = setTimeout(()=>{ if(scenario===0) scenarioBoot(); }, ms(5000));
     });
     logCard('res','✅','Alles erledigt – Ladesäule ist bereit!',
       '☁️ Server → 🏭 Ladesäule: „Status notiert."',
@@ -907,7 +905,6 @@ function scenarioHeartbeat() {
         document.getElementById('dot0').className='step-dot';
         document.getElementById('dot1').className='step-dot';
       }, ms(3000));
-      loopTimer = setTimeout(beat, ms(5000));
     });
   }
   beat();
@@ -1047,7 +1044,6 @@ function scenarioStop() {
     res('Verstanden ✓', 0, ()=>{
       setStep('🎉','Fertig! Laden und Bezahlen abgeschlossen.','Quittung kommt per App oder E-Mail.',3);
       document.getElementById('dot3').className='step-dot done';
-      loopTimer = setTimeout(()=>{ if(scenario===3) scenarioStop(); }, ms(6000));
     });
     logCard('res','🎉','Alles erledigt!',
       '☁️ Server → 🏭 Ladesäule: „Alles notiert. Danke!"',
@@ -1105,7 +1101,6 @@ function scenarioError() {
         '🏭 Ladesäule bestätigt: „Bin gesperrt. Warte auf Wartung."',
         'Die Säule leuchtet jetzt rot oder zeigt eine Fehlermeldung am Display. In der App erscheint sie als „nicht verfügbar".',
         '[3,"009",{"status":"Accepted"}]');
-      loopTimer = setTimeout(()=>{ if(scenario===4) scenarioError(); }, ms(7000));
     });
   });
 }
