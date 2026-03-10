@@ -1,0 +1,1119 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wie funktioniert eine Ladestation?</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0c1220;
+  --surface: #131d2e;
+  --surface2: #1a2740;
+  --border: #1e3050;
+  --text: #e2e8f0;
+  --text-dim: #64748b;
+  --text-mid: #94a3b8;
+  --accent: #38bdf8;
+  --green: #34d399;
+  --blue: #60a5fa;
+  --yellow: #fbbf24;
+  --red: #f87171;
+  --sans: 'Inter', sans-serif;
+  --mono: 'JetBrains Mono', monospace;
+  --speed: 1; /* animation speed multiplier */
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: var(--sans); min-height: 100vh; overflow-x: hidden; }
+
+/* ── INTRO BANNER ── */
+#intro-banner {
+  background: linear-gradient(135deg, #0f2040, #1a3060);
+  border-bottom: 1px solid #2563eb44;
+  padding: 14px 32px;
+  display: flex; align-items: center; gap: 16px;
+  font-size: 14px; color: #93c5fd;
+  position: relative;
+}
+#intro-banner .intro-icon { font-size: 22px; flex-shrink: 0; }
+#intro-banner strong { color: var(--text); }
+#intro-close {
+  margin-left: auto; padding: 5px 14px; border-radius: 6px;
+  background: #1d4ed8; border: none; color: #fff;
+  font-size: 12px; font-family: var(--sans); cursor: pointer;
+  white-space: nowrap; transition: background .2s;
+}
+#intro-close:hover { background: #2563eb; }
+
+/* ── HEADER ── */
+header {
+  padding: 16px 32px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--surface); gap: 16px; flex-wrap: wrap;
+}
+.logo { display: flex; align-items: center; gap: 12px; }
+.logo-icon {
+  width: 38px; height: 38px;
+  background: linear-gradient(135deg, #38bdf8, #6366f1);
+  border-radius: 10px; display: flex; align-items: center;
+  justify-content: center; font-size: 20px; flex-shrink: 0;
+}
+.logo-text { font-size: 17px; font-weight: 700; }
+.logo-sub { font-size: 12px; color: var(--text-dim); margin-top: 1px; }
+
+.header-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+/* Speed control */
+.speed-ctrl {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 8px; padding: 6px 12px; font-size: 12px;
+}
+.speed-label { color: var(--text-dim); white-space: nowrap; }
+.speed-btn {
+  padding: 3px 10px; border-radius: 5px; border: 1px solid var(--border);
+  background: var(--bg); color: var(--text-dim); font-size: 11px;
+  cursor: pointer; transition: all .15s; font-family: var(--sans);
+}
+.speed-btn.active { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 600; }
+
+/* Network toggle */
+.net-toggle { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.net-label { color: var(--text-dim); white-space: nowrap; }
+.toggle-btn { display: flex; background: var(--bg); border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }
+.toggle-opt { padding: 5px 13px; cursor: pointer; font-size: 12px; color: var(--text-dim); transition: all .2s; user-select: none; }
+.toggle-opt.active { background: var(--accent); color: #000; font-weight: 600; }
+
+/* ── SCENARIO BAR ── */
+.scenario-bar {
+  padding: 12px 32px; background: var(--surface); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+.scenario-label { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; white-space: nowrap; margin-right: 4px; }
+.scenario-btn {
+  padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--surface2); color: var(--text); font-size: 13px;
+  cursor: pointer; transition: all .2s; white-space: nowrap; font-family: var(--sans);
+}
+.scenario-btn:hover { border-color: var(--accent); color: var(--accent); }
+.scenario-btn.active { background: #0c3d5c; border-color: var(--accent); color: var(--accent); font-weight: 600; }
+.scenario-btn.s-red.active { background: #3f1010; border-color: var(--red); color: var(--red); }
+.stop-btn {
+  margin-left: auto; padding: 8px 16px; border-radius: 8px;
+  border: 1px solid var(--border); background: transparent;
+  color: var(--text-dim); font-size: 13px; cursor: pointer;
+  transition: all .2s; font-family: var(--sans);
+}
+.stop-btn:hover { border-color: var(--red); color: var(--red); }
+
+/* ── MAIN LAYOUT ── */
+.main {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  height: calc(100vh - 77px - 57px - 44px);
+  min-height: 500px;
+}
+
+/* ── VIZ AREA ── */
+.viz-wrap { display: flex; flex-direction: column; overflow: hidden; }
+.viz-area {
+  flex: 1; position: relative; overflow: hidden;
+  background: var(--bg);
+  background-image:
+    radial-gradient(ellipse at 15% 60%, rgba(56,189,248,0.04) 0%, transparent 55%),
+    radial-gradient(ellipse at 85% 30%, rgba(99,102,241,0.04) 0%, transparent 55%),
+    linear-gradient(rgba(30,48,80,0.18) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(30,48,80,0.18) 1px, transparent 1px);
+  background-size: auto, auto, 44px 44px, 44px 44px;
+}
+#viz-svg { width: 100%; height: 100%; display: block; }
+
+/* ── STEP BANNER ── */
+.step-banner {
+  background: var(--surface); border-top: 1px solid var(--border);
+  padding: 14px 32px; min-height: 72px;
+  display: flex; align-items: center; gap: 16px;
+}
+.step-icon { font-size: 28px; flex-shrink: 0; width: 36px; text-align: center; }
+.step-content { flex: 1; }
+.step-main { font-size: 15px; font-weight: 600; color: var(--text); line-height: 1.4; }
+.step-sub { font-size: 12px; color: var(--text-mid); margin-top: 3px; }
+.step-dots { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
+.step-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); transition: all .3s; }
+.step-dot.done { background: var(--green); }
+.step-dot.active { background: var(--accent); transform: scale(1.3); }
+
+/* ── LOG PANEL ── */
+.log-panel {
+  background: var(--surface); border-left: 1px solid var(--border);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.log-header {
+  padding: 14px 18px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.log-title { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.log-live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); animation: livePulse 2s infinite; }
+@keyframes livePulse { 0%,100%{opacity:1;} 50%{opacity:.3;} }
+.log-clear { font-size: 11px; color: var(--text-dim); cursor: pointer; padding: 3px 10px; border-radius: 5px; border: 1px solid var(--border); background: none; transition: all .2s; font-family: var(--sans); }
+.log-clear:hover { color: var(--red); border-color: var(--red); }
+
+.log-messages { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 10px; scroll-behavior: smooth; }
+.log-messages::-webkit-scrollbar { width: 4px; }
+.log-messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* LOG CARD */
+.log-card {
+  border-radius: 10px; overflow: hidden;
+  border: 1px solid var(--border);
+  animation: cardIn .35s cubic-bezier(.22,1,.36,1);
+}
+@keyframes cardIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:none; } }
+.log-card-header {
+  padding: 10px 14px; display: flex; align-items: center; gap: 10px;
+  font-size: 13px; font-weight: 600;
+}
+.log-card-header .card-icon { font-size: 18px; flex-shrink: 0; }
+.log-card-title { flex: 1; }
+.log-badge {
+  font-size: 10px; padding: 2px 8px; border-radius: 4px;
+  font-weight: 700; letter-spacing: 0.5px; flex-shrink: 0;
+}
+.log-card-body { padding: 10px 14px 12px; background: var(--bg); }
+.log-card-analogy { font-size: 13px; color: var(--text); line-height: 1.6; margin-bottom: 8px; }
+.log-card-plain { font-size: 12px; color: var(--text-mid); line-height: 1.6; }
+.log-card-detail {
+  margin-top: 8px; border-top: 1px solid var(--border); padding-top: 8px;
+}
+.log-card-detail-toggle {
+  font-size: 11px; color: var(--text-dim); cursor: pointer;
+  display: flex; align-items: center; gap: 4px;
+  background: none; border: none; font-family: var(--sans); padding: 0;
+}
+.log-card-detail-toggle:hover { color: var(--accent); }
+.log-card-json {
+  margin-top: 6px; display: none;
+  font-family: var(--mono); font-size: 10px; color: #64748b;
+  background: #060b14; padding: 8px 10px; border-radius: 6px;
+  line-height: 1.7; word-break: break-all;
+}
+.log-card-json.open { display: block; }
+
+/* card types */
+.card-req .log-card-header { background: #0a2035; }
+.card-req .log-card-title { color: var(--accent); }
+.card-req .log-badge { background: rgba(56,189,248,.15); color: var(--accent); }
+.card-req { border-color: #164e6344; }
+
+.card-res .log-card-header { background: #062018; }
+.card-res .log-card-title { color: var(--green); }
+.card-res .log-badge { background: rgba(52,211,153,.15); color: var(--green); }
+.card-res { border-color: #06402544; }
+
+.card-err .log-card-header { background: #1f0808; }
+.card-err .log-card-title { color: var(--red); }
+.card-err .log-badge { background: rgba(248,113,113,.15); color: var(--red); }
+.card-err { border-color: #7f1d1d44; }
+
+.card-info .log-card-header { background: #1a1500; }
+.card-info .log-card-title { color: var(--yellow); }
+.card-info .log-badge { background: rgba(251,191,36,.15); color: var(--yellow); }
+.card-info { border-color: #78350f44; }
+
+/* ── LEGEND ── */
+.legend {
+  padding: 12px 18px; border-top: 1px solid var(--border);
+  display: flex; flex-wrap: wrap; gap: 10px 18px;
+}
+.legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-dim); }
+.legend-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+
+/* ── TOOLTIP ── */
+.tooltip {
+  position: absolute; background: #1a2740; border: 1px solid var(--border);
+  border-radius: 10px; padding: 12px 16px; max-width: 240px;
+  pointer-events: none; z-index: 200; opacity: 0; transition: opacity .2s;
+  line-height: 1.6; box-shadow: 0 8px 32px #00000060;
+}
+.tooltip.visible { opacity: 1; }
+.tooltip-title { font-weight: 700; font-size: 13px; color: var(--accent); margin-bottom: 5px; }
+.tooltip-simple { font-size: 13px; color: var(--text); margin-bottom: 6px; }
+.tooltip-tech { font-size: 11px; color: var(--text-dim); font-family: var(--mono); }
+
+/* ── SVG STYLES ── */
+.comp-hover { cursor: pointer; }
+.conn-line { stroke: var(--border); stroke-width: 2; fill: none; }
+.conn-anim {
+  stroke: var(--accent); stroke-width: 2; fill: none;
+  stroke-dasharray: 10 14; animation: dashFlow 1.5s linear infinite;
+}
+.conn-anim.wifi { stroke-dasharray: 5 5; animation: dashFlow .9s linear infinite; }
+@keyframes dashFlow { to { stroke-dashoffset: -24; } }
+
+.status-pulse { animation: sPulse 2.4s ease-in-out infinite; }
+@keyframes sPulse { 0%,100%{opacity:1;} 50%{opacity:.5;} }
+@keyframes errFlash { 0%,100%{fill:#f87171;} 50%{fill:#fca5a5;opacity:.5;} }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 960px) {
+  .main { grid-template-columns: 1fr; grid-template-rows: 1fr auto; height: auto; }
+  .viz-area { height: 380px; }
+  .log-panel { border-left: none; border-top: 1px solid var(--border); max-height: 320px; }
+  .step-banner { padding: 12px 20px; }
+}
+@media (max-width: 600px) {
+  header { padding: 12px 16px; }
+  .logo-text { font-size: 15px; }
+  .scenario-bar { padding: 10px 16px; overflow-x: auto; flex-wrap: nowrap; }
+  .scenario-btn { font-size: 12px; padding: 7px 12px; }
+  .viz-area { height: 280px; }
+}
+</style>
+</head>
+<body>
+
+<!-- INTRO BANNER -->
+<div id="intro-banner">
+  <div class="intro-icon">💡</div>
+  <div><strong>Wie kommuniziert eine Ladestation mit dem Internet?</strong><br>
+  Klicke auf ein Szenario und sieh Schritt für Schritt, was im Hintergrund passiert – ganz ohne Vorkenntnisse.</div>
+  <button id="intro-close" onclick="document.getElementById('intro-banner').style.display='none'">Verstanden ✓</button>
+</div>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">⚡</div>
+    <div>
+      <div class="logo-text">Ladestation erklärt</div>
+      <div class="logo-sub">Interaktive Visualisierung des OCPP-Protokolls</div>
+    </div>
+  </div>
+  <div class="header-controls">
+    <div class="speed-ctrl">
+      <span class="speed-label">Geschwindigkeit:</span>
+      <button class="speed-btn active" onclick="setSpeed(1,this)">Langsam</button>
+      <button class="speed-btn" onclick="setSpeed(2,this)">Normal</button>
+      <button class="speed-btn" onclick="setSpeed(4,this)">Schnell</button>
+    </div>
+    <div class="net-toggle">
+      <span class="net-label">Verbindungsart:</span>
+      <div class="toggle-btn">
+        <div class="toggle-opt active" id="opt-mobile" onclick="setNetwork('mobile')">📶 Mobilfunk</div>
+        <div class="toggle-opt" id="opt-wifi" onclick="setNetwork('wifi')">📡 WiFi/LAN</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- SCENARIO BAR -->
+<div class="scenario-bar">
+  <span class="scenario-label">Szenario:</span>
+  <button class="scenario-btn" id="btn-0" onclick="runScenario(0)">1️⃣ Ladesäule startet auf</button>
+  <button class="scenario-btn" id="btn-1" onclick="runScenario(1)">2️⃣ Lebenszeichen senden</button>
+  <button class="scenario-btn" id="btn-2" onclick="runScenario(2)">3️⃣ Auto anstecken &amp; laden</button>
+  <button class="scenario-btn" id="btn-3" onclick="runScenario(3)">4️⃣ Laden beenden &amp; zahlen</button>
+  <button class="scenario-btn s-red" id="btn-4" onclick="runScenario(4)">5️⃣ Wenn etwas schiefgeht</button>
+  <button class="stop-btn" onclick="stopAll()">✕ Stopp</button>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- VIZ WRAP -->
+  <div class="viz-wrap">
+    <div class="viz-area" id="viz-area">
+      <svg id="viz-svg" viewBox="0 0 860 400" preserveAspectRatio="xMidYMid meet">
+        <defs>
+          <filter id="glow-blue" x="-30%" y="-30%" width="160%" height="160%">
+            <feGaussianBlur stdDeviation="4" result="blur"/>
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+          <filter id="glow-green" x="-30%" y="-30%" width="160%" height="160%">
+            <feGaussianBlur stdDeviation="4" result="blur"/>
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+          <filter id="glow-red" x="-30%" y="-30%" width="160%" height="160%">
+            <feGaussianBlur stdDeviation="3" result="blur"/>
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+          <linearGradient id="batGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#34d399"/>
+            <stop offset="100%" stop-color="#6ee7b7"/>
+          </linearGradient>
+          <linearGradient id="bgGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="#1e3050" stop-opacity=".35"/>
+            <stop offset="100%" stop-color="transparent"/>
+          </linearGradient>
+        </defs>
+
+        <rect width="860" height="400" fill="url(#bgGrad)"/>
+
+        <!-- ── CONNECTION LINES ── -->
+        <line x1="148" y1="198" x2="228" y2="198" class="conn-line"/>
+        <line x1="408" y1="198" x2="490" y2="198" class="conn-line"/>
+        <line x1="590" y1="198" x2="668" y2="198" class="conn-line"/>
+
+        <!-- Animated overlays -->
+        <line id="al-ev-cp" x1="148" y1="198" x2="228" y2="198" class="conn-anim" style="display:none"/>
+        <line id="al-cp-net" x1="408" y1="202" x2="490" y2="202" class="conn-anim" style="display:none"/>
+        <line id="al-net-be" x1="590" y1="202" x2="668" y2="202" class="conn-anim" style="display:none"/>
+
+        <!-- ── LABELS ON LINES ── -->
+        <text x="449" y="190" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" fill="#334155">Internet</text>
+        <text x="629" y="190" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" fill="#334155">verschlüsselt</text>
+
+        <!-- ══════════════════════════════ -->
+        <!--  COMPONENT 1 – FAHRZEUG (EV)  -->
+        <!-- ══════════════════════════════ -->
+        <g id="comp-ev" class="comp-hover" onmouseenter="tip(event,'ev')" onmouseleave="noTip()">
+          <rect x="14" y="130" width="134" height="136" rx="12" fill="#131d2e" stroke="#1e3050" stroke-width="1.5"/>
+          <!-- Label -->
+          <text x="81" y="150" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" font-weight="600" fill="#475569" letter-spacing=".8">ELEKTROAUTO</text>
+          <!-- Car -->
+          <g transform="translate(31,158)">
+            <rect x="0" y="17" width="52" height="22" rx="4" fill="#1a3060" stroke="#60a5fa" stroke-width="1.2"/>
+            <path d="M7 17 Q11 5 17 3 L35 3 Q41 6 45 17 Z" fill="#1a3060" stroke="#60a5fa" stroke-width="1.2"/>
+            <rect x="13" y="6" width="10" height="8" rx="2" fill="#0c1a30" stroke="#60a5fa" stroke-width=".8" opacity=".85"/>
+            <rect x="25" y="6" width="10" height="8" rx="2" fill="#0c1a30" stroke="#60a5fa" stroke-width=".8" opacity=".85"/>
+            <circle cx="10" cy="39" r="6" fill="#0a0e1a" stroke="#475569" stroke-width="1.5"/>
+            <circle cx="42" cy="39" r="6" fill="#0a0e1a" stroke="#475569" stroke-width="1.5"/>
+            <circle cx="10" cy="39" r="2.5" fill="#1a2740"/>
+            <circle cx="42" cy="39" r="2.5" fill="#1a2740"/>
+            <rect x="46" y="21" width="5" height="4" rx="1" fill="#fbbf24" opacity=".6"/>
+            <!-- charge port -->
+            <rect id="charge-port" x="-5" y="23" width="5" height="9" rx="1" fill="#1a2740" stroke="#1e3050" stroke-width="1.2"/>
+          </g>
+          <!-- Battery -->
+          <text x="81" y="228" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" fill="#475569">Akkustand</text>
+          <rect x="52" y="232" width="42" height="11" rx="2" fill="none" stroke="#1e3050" stroke-width="1.5"/>
+          <rect x="94" y="235" width="4" height="5" rx="1" fill="#1e3050"/>
+          <rect id="bat-fill" x="54" y="234" width="25" height="7" rx="1.5" fill="url(#batGrad)"/>
+          <text id="bat-pct" x="81" y="254" text-anchor="middle" font-family="Inter,sans-serif" font-size="11" font-weight="600" fill="#34d399">60%</text>
+          <!-- Status -->
+          <circle id="ev-dot" cx="81" cy="261" r="5" fill="#34d399" class="status-pulse"/>
+          <text id="ev-lbl" x="81" y="272" text-anchor="middle" font-family="Inter,sans-serif" font-size="10" fill="#64748b">bereit</text>
+        </g>
+
+        <!-- Charge cable -->
+        <path id="cable" d="M148 196 Q178 196 188 196 Q195 196 195 190 L195 186" stroke="#1e3050" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+        <circle id="plug" cx="195" cy="184" r="4" fill="#1e3050" stroke="#1e3050" stroke-width="1.2"/>
+
+        <!-- ══════════════════════════════════ -->
+        <!--  COMPONENT 2 – LADESTATION (CP)   -->
+        <!-- ══════════════════════════════════ -->
+        <g id="comp-cp" class="comp-hover" onmouseenter="tip(event,'cp')" onmouseleave="noTip()">
+          <rect x="226" y="108" width="184" height="180" rx="12" fill="#131d2e" stroke="#1e3050" stroke-width="1.5"/>
+          <text x="318" y="128" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" font-weight="600" fill="#475569" letter-spacing=".8">LADESTATION</text>
+          <text x="318" y="140" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="#334155">verwaltet 2 Ladepunkte</text>
+
+          <!-- EVSE 1 -->
+          <g id="evse1">
+            <rect x="239" y="148" width="72" height="110" rx="8" fill="#0c1522" stroke="#1e3050" stroke-width="1.2"/>
+            <text x="275" y="163" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="#475569">Ladepunkt 1</text>
+            <rect x="259" y="168" width="32" height="46" rx="5" fill="#111827" stroke="#1e3050"/>
+            <text x="275" y="196" text-anchor="middle" font-size="22">⚡</text>
+            <circle id="evse1-dot" cx="275" cy="228" r="6" fill="#34d399"/>
+            <text id="evse1-lbl" x="275" y="244" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="#64748b">frei</text>
+          </g>
+
+          <!-- EVSE 2 -->
+          <g id="evse2">
+            <rect x="321" y="148" width="75" height="110" rx="8" fill="#0c1522" stroke="#1e3050" stroke-width="1.2"/>
+            <text x="359" y="163" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="#475569">Ladepunkt 2</text>
+            <rect x="343" y="168" width="32" height="46" rx="5" fill="#111827" stroke="#1e3050"/>
+            <text x="359" y="196" text-anchor="middle" font-size="22">🔌</text>
+            <circle id="evse2-dot" cx="359" cy="228" r="6" fill="#334155"/>
+            <text id="evse2-lbl" x="359" y="244" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="#64748b">belegt</text>
+          </g>
+          <text x="318" y="275" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="#1e3050">ID: CP-001</text>
+        </g>
+
+        <!-- ══════════════════════════ -->
+        <!--  COMPONENT 3 – NETZWERK   -->
+        <!-- ══════════════════════════ -->
+        <g id="comp-net" class="comp-hover" onmouseenter="tip(event,'net')" onmouseleave="noTip()">
+          <rect x="488" y="148" width="104" height="100" rx="12" fill="#131d2e" stroke="#1e3050" stroke-width="1.5"/>
+          <text x="540" y="168" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" font-weight="600" fill="#475569" letter-spacing=".8">INTERNET</text>
+
+          <!-- Mobile -->
+          <g id="net-mob">
+            <line x1="540" y1="222" x2="540" y2="195" stroke="#60a5fa" stroke-width="2"/>
+            <line x1="540" y1="195" x2="527" y2="213" stroke="#60a5fa" stroke-width="1.5"/>
+            <line x1="540" y1="195" x2="553" y2="213" stroke="#60a5fa" stroke-width="1.5"/>
+            <path d="M524 211 Q532 201 540 198 Q548 201 556 211" fill="none" stroke="#38bdf8" stroke-width="1.5" opacity=".8"/>
+            <path d="M519 216 Q530 203 540 200 Q550 203 561 216" fill="none" stroke="#38bdf8" stroke-width="1" opacity=".45"/>
+            <text x="540" y="238" text-anchor="middle" font-family="Inter,sans-serif" font-size="10" fill="#60a5fa" font-weight="600">4G / 5G</text>
+          </g>
+          <!-- WiFi -->
+          <g id="net-wifi" style="display:none">
+            <rect x="523" y="205" width="34" height="18" rx="3" fill="#1a3060" stroke="#60a5fa" stroke-width="1.2"/>
+            <circle cx="529" cy="214" r="2" fill="#34d399"/>
+            <circle cx="535" cy="214" r="2" fill="#34d399"/>
+            <circle cx="541" cy="214" r="2" fill="#60a5fa"/>
+            <line x1="534" y1="205" x2="531" y2="192" stroke="#60a5fa" stroke-width="1.5"/>
+            <line x1="546" y1="205" x2="549" y2="192" stroke="#60a5fa" stroke-width="1.5"/>
+            <path d="M527 200 Q540 192 553 200" fill="none" stroke="#38bdf8" stroke-width="1.5" opacity=".9"/>
+            <path d="M522 204 Q540 194 558 204" fill="none" stroke="#38bdf8" stroke-width="1" opacity=".45"/>
+            <text x="540" y="238" text-anchor="middle" font-family="Inter,sans-serif" font-size="10" fill="#60a5fa" font-weight="600">WiFi / LAN</text>
+          </g>
+        </g>
+
+        <!-- ══════════════════════════════════════ -->
+        <!--  COMPONENT 4 – BACKEND / CSMS          -->
+        <!-- ══════════════════════════════════════ -->
+        <g id="comp-be" class="comp-hover" onmouseenter="tip(event,'be')" onmouseleave="noTip()">
+          <rect x="666" y="108" width="178" height="180" rx="12" fill="#131d2e" stroke="#1e3050" stroke-width="1.5"/>
+          <text x="755" y="128" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" font-weight="600" fill="#475569" letter-spacing=".8">BACKEND-SERVER</text>
+          <text x="755" y="140" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="#334155">Zentrale Steuersoftware</text>
+
+          <!-- Server racks -->
+          <g transform="translate(684,150)">
+            <rect width="122" height="20" rx="3" fill="#0c1522" stroke="#1e3050"/>
+            <rect x="5" y="6" width="52" height="8" rx="2" fill="#1a2740"/>
+            <circle cx="84" cy="10" r="3" fill="#34d399"/>
+            <circle cx="92" cy="10" r="3" fill="#34d399"/>
+            <circle cx="100" cy="10" r="3" fill="#fbbf24"/>
+            <text x="31" y="12" text-anchor="middle" font-family="Inter,sans-serif" font-size="7" fill="#475569">VERBINDUNG</text>
+
+            <rect y="25" width="122" height="20" rx="3" fill="#0c1522" stroke="#1e3050"/>
+            <rect x="5" y="31" width="52" height="8" rx="2" fill="#1a2740"/>
+            <circle cx="84" cy="35" r="3" fill="#34d399"/>
+            <circle cx="92" cy="35" r="3" fill="#60a5fa"/>
+            <circle cx="100" cy="35" r="3" fill="#34d399"/>
+            <text x="31" y="37" text-anchor="middle" font-family="Inter,sans-serif" font-size="7" fill="#475569">DATENBANK</text>
+
+            <rect y="50" width="122" height="20" rx="3" fill="#0c1522" stroke="#1e3050"/>
+            <rect x="5" y="56" width="52" height="8" rx="2" fill="#1a2740"/>
+            <circle cx="84" cy="60" r="3" fill="#a78bfa"/>
+            <circle cx="92" cy="60" r="3" fill="#34d399"/>
+            <circle cx="100" cy="60" r="3" fill="#34d399"/>
+            <text x="31" y="62" text-anchor="middle" font-family="Inter,sans-serif" font-size="7" fill="#475569">ABRECHNUNG</text>
+          </g>
+
+          <!-- Cloud + status -->
+          <text x="755" y="250" text-anchor="middle" font-size="22">☁️</text>
+          <circle id="be-dot" cx="755" cy="268" r="5" fill="#34d399" class="status-pulse"/>
+          <text x="755" y="280" text-anchor="middle" font-family="Inter,sans-serif" font-size="10" fill="#64748b">online</text>
+          <text x="755" y="290" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="#1e3050">csms.example.com</text>
+        </g>
+
+        <!-- PACKETS LAYER -->
+        <g id="pkts"></g>
+
+        <!-- STEP TITLE IN SVG (fallback / overlay) -->
+        <text id="svgtitle" x="430" y="368" text-anchor="middle" font-family="Inter,sans-serif" font-size="13" font-weight="600" fill="#1e3050">← Wähle ein Szenario aus, um zu starten</text>
+      </svg>
+      <div class="tooltip" id="tooltip"></div>
+    </div>
+
+    <!-- STEP BANNER -->
+    <div class="step-banner" id="step-banner">
+      <div class="step-icon" id="step-icon">💤</div>
+      <div class="step-content">
+        <div class="step-main" id="step-main">Bereit – wähle ein Szenario oben</div>
+        <div class="step-sub" id="step-sub">Klicke auf eine der 5 Schaltflächen, um den Ablauf zu sehen</div>
+      </div>
+      <div class="step-dots" id="step-dots"></div>
+    </div>
+  </div>
+
+  <!-- LOG PANEL -->
+  <div class="log-panel">
+    <div class="log-header">
+      <div class="log-title"><div class="log-live-dot"></div>Was passiert gerade?</div>
+      <button class="log-clear" onclick="clearLog()">leeren</button>
+    </div>
+    <div class="log-messages" id="log">
+      <div class="log-card card-info">
+        <div class="log-card-header">
+          <span class="card-icon">👋</span>
+          <span class="log-card-title">Willkommen!</span>
+          <span class="log-badge">TIPP</span>
+        </div>
+        <div class="log-card-body">
+          <div class="log-card-analogy">Hier erscheinen Schritt für Schritt Erklärungen, sobald du ein Szenario startest.</div>
+          <div class="log-card-plain">Jede Nachricht zwischen Ladestation und Server wird erklärt – in einfacher Sprache.</div>
+        </div>
+      </div>
+    </div>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#38bdf8"></div>Nachricht gesendet</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#34d399"></div>Antwort erhalten</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#f87171"></div>Fehler</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#34d399"></div>frei &nbsp;<div class="legend-dot" style="background:#60a5fa" style="margin-left:4px"></div>lädt &nbsp;<div class="legend-dot" style="background:#f87171"></div>Fehler</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════
+// GLOBALS
+// ═══════════════════════════
+let speed = 1;          // multiplier: 1=slow,2=normal,4=fast
+let netType = 'mobile';
+let scenario = -1;
+let timers = [];
+let loopTimer = null;
+let batLevel = 60;
+let stepTotal = 0;
+let stepCurrent = 0;
+
+// Base durations (at speed=1)
+const PKT_DUR = 1800;   // ms one segment
+const STEP_GAP = 3200;  // ms between steps
+
+function ms(base) { return Math.round(base / speed); }
+
+// ═══════════════════════════
+// SPEED
+// ═══════════════════════════
+function setSpeed(s, el) {
+  speed = s;
+  document.querySelectorAll('.speed-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+}
+
+// ═══════════════════════════
+// NETWORK
+// ═══════════════════════════
+function setNetwork(type) {
+  netType = type;
+  document.getElementById('opt-mobile').classList.toggle('active', type === 'mobile');
+  document.getElementById('opt-wifi').classList.toggle('active', type === 'wifi');
+  document.getElementById('net-mob').style.display = type === 'mobile' ? '' : 'none';
+  document.getElementById('net-wifi').style.display = type === 'wifi' ? '' : 'none';
+  ['al-cp-net','al-net-be'].forEach(id => {
+    const el = document.getElementById(id);
+    type === 'wifi' ? el.classList.add('wifi') : el.classList.remove('wifi');
+  });
+  logCard('info','📡','Verbindungstyp geändert',
+    `Jetzt: ${type === 'mobile' ? 'Mobilfunk (4G/5G SIM-Karte)' : 'WiFi oder Netzwerkkabel (LAN)'}`,
+    'Das OCPP-Protokoll funktioniert über beide Verbindungsarten genau gleich.', '');
+}
+
+// ═══════════════════════════
+// TOOLTIP
+// ═══════════════════════════
+const tipData = {
+  ev: {
+    title: 'Das Elektroauto',
+    simple: 'Das Fahrzeug, das geladen werden soll. Es hat eine Batterie – wie ein riesiges Smartphone.',
+    tech: 'Kommuniziert per IEC 61851 / ISO 15118 (PWM / PLC) mit dem Ladepunkt.'
+  },
+  cp: {
+    title: 'Die Ladestation',
+    simple: 'Die Säule auf dem Parkplatz. Sie hat 1–2 Stecker (Ladepunkte) und spricht mit dem Internet.',
+    tech: 'Charge Point mit 2 EVSE. Sendet OCPP-Nachrichten per WebSocket an das Backend.'
+  },
+  net: {
+    title: 'Das Internet',
+    simple: 'Die Ladestation ist wie dein Handy ans Internet angeschlossen – per Mobilfunk oder WLAN.',
+    tech: 'WebSocket-Verbindung (OCPP 1.6 / 2.0.1) über TLS/WSS, Port 443.'
+  },
+  be: {
+    title: 'Der Backend-Server',
+    simple: 'Ein Computer im Rechenzentrum, der alle Ladestationen überwacht, Nutzer prüft und Rechnungen erstellt.',
+    tech: 'CSMS (Charge Point Management System). Führt OCPP-Serverrolle. Verwaltet Autorisierung, Metering, Billing.'
+  }
+};
+function tip(e, id) {
+  const d = tipData[id];
+  const t = document.getElementById('tooltip');
+  t.innerHTML = `<div class="tooltip-title">${d.title}</div><div class="tooltip-simple">${d.simple}</div><div class="tooltip-tech">⚙ ${d.tech}</div>`;
+  const rect = document.getElementById('viz-area').getBoundingClientRect();
+  let lx = e.clientX - rect.left + 12;
+  let ty = e.clientY - rect.top + 12;
+  if (lx + 250 > rect.width) lx -= 260;
+  t.style.left = lx + 'px'; t.style.top = ty + 'px';
+  t.classList.add('visible');
+}
+function noTip() { document.getElementById('tooltip').classList.remove('visible'); }
+
+// ═══════════════════════════
+// LOG CARDS
+// ═══════════════════════════
+function logCard(type, icon, title, analogy, plain, json) {
+  const c = document.getElementById('log');
+  const typeMap = { req:'card-req', res:'card-res', err:'card-err', info:'card-info' };
+  const badgeMap = { req:'📤 GESENDET', res:'📥 ANTWORT', err:'⚠ FEHLER', info:'ℹ INFO' };
+  const uid = 'jd_' + Date.now() + Math.random();
+  const el = document.createElement('div');
+  el.className = `log-card ${typeMap[type]||'card-info'}`;
+  el.innerHTML = `
+    <div class="log-card-header">
+      <span class="card-icon">${icon}</span>
+      <span class="log-card-title">${title}</span>
+      <span class="log-badge">${badgeMap[type]||'INFO'}</span>
+    </div>
+    <div class="log-card-body">
+      <div class="log-card-analogy">${analogy}</div>
+      ${plain ? `<div class="log-card-plain">${plain}</div>` : ''}
+      ${json ? `<div class="log-card-detail">
+        <button class="log-card-detail-toggle" onclick="toggleJson('${uid}')">▶ Technische Details (OCPP)</button>
+        <div class="log-card-json" id="${uid}">${json}</div>
+      </div>` : ''}
+    </div>`;
+  c.appendChild(el);
+  c.scrollTop = c.scrollHeight;
+}
+function toggleJson(id) {
+  const el = document.getElementById(id);
+  el.classList.toggle('open');
+  el.previousElementSibling.textContent = el.classList.contains('open') ? '▼ Technische Details (OCPP)' : '▶ Technische Details (OCPP)';
+}
+function clearLog() { document.getElementById('log').innerHTML = ''; }
+
+// ═══════════════════════════
+// STEP BANNER
+// ═══════════════════════════
+function initDots(n) {
+  stepTotal = n; stepCurrent = 0;
+  const d = document.getElementById('step-dots');
+  d.innerHTML = '';
+  for (let i=0;i<n;i++) {
+    const dot = document.createElement('div');
+    dot.className = 'step-dot'; dot.id = 'dot'+i; d.appendChild(dot);
+  }
+}
+function setStep(icon, main, sub, idx) {
+  document.getElementById('step-icon').textContent = icon;
+  document.getElementById('step-main').textContent = main;
+  document.getElementById('step-sub').textContent = sub || '';
+  document.getElementById('svgtitle').textContent = main;
+  document.getElementById('svgtitle').setAttribute('fill','#38bdf8');
+  // dots
+  if (idx !== undefined && stepTotal > 0) {
+    for (let i=0;i<stepTotal;i++) {
+      const dot = document.getElementById('dot'+i);
+      if (!dot) continue;
+      if (i < idx) { dot.className = 'step-dot done'; }
+      else if (i === idx) { dot.className = 'step-dot active'; }
+      else { dot.className = 'step-dot'; }
+    }
+    stepCurrent = idx;
+  }
+}
+
+// ═══════════════════════════
+// PACKET ANIMATION
+// ═══════════════════════════
+function pkt(x1,y1,x2,y2,color,label,delay,done) {
+  const t = setTimeout(()=>{
+    const layer = document.getElementById('pkts');
+    const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+    const filterMap = {'#38bdf8':'glow-blue','#34d399':'glow-green','#f87171':'glow-red','#fbbf24':'glow-blue'};
+    const r = document.createElementNS('http://www.w3.org/2000/svg','rect');
+    r.setAttribute('width','76'); r.setAttribute('height','20'); r.setAttribute('rx','5');
+    r.setAttribute('fill',color); r.setAttribute('filter',`url(#${filterMap[color]||'glow-blue'})`);
+    const tx = document.createElementNS('http://www.w3.org/2000/svg','text');
+    tx.setAttribute('x','38'); tx.setAttribute('y','14'); tx.setAttribute('text-anchor','middle');
+    tx.setAttribute('font-family','Inter,sans-serif'); tx.setAttribute('font-size','9');
+    tx.setAttribute('font-weight','700');
+    tx.setAttribute('fill', color==='#34d399'?'#022c22':color==='#38bdf8'?'#0c2940':'#fff');
+    tx.textContent = label;
+    g.appendChild(r); g.appendChild(tx);
+    layer.appendChild(g);
+    const dur = ms(PKT_DUR);
+    const start = performance.now();
+    function frame(now) {
+      const t2 = Math.min((now-start)/dur,1);
+      const e = t2<.5?2*t2*t2:-1+(4-2*t2)*t2;
+      g.setAttribute('transform',`translate(${x1+(x2-x1)*e-38},${y1+(y2-y1)*e-10})`);
+      if(t2<1) requestAnimationFrame(frame); else { g.remove(); if(done) done(); }
+    }
+    requestAnimationFrame(frame);
+  }, delay);
+  timers.push(t);
+}
+
+// Request: CP → Net → Backend
+function req(label,delay,done) {
+  pkt(408,198,490,198,'#38bdf8',label,delay,()=>pkt(590,198,668,198,'#38bdf8',label,0,done));
+}
+// Response: Backend → Net → CP
+function res(label,delay,done) {
+  pkt(668,202,590,202,'#34d399',label,delay,()=>pkt(490,202,408,202,'#34d399',label,0,done));
+}
+// Error packet
+function err(label,delay,done) {
+  pkt(408,198,490,198,'#f87171',label,delay,()=>pkt(590,198,668,198,'#f87171',label,0,done));
+}
+// Backend → CP (push)
+function push(label,delay,done) {
+  pkt(668,202,590,202,'#fbbf24',label,delay,()=>pkt(490,202,408,202,'#fbbf24',label,0,done));
+}
+
+function sched(delay,fn) { const t=setTimeout(fn,delay); timers.push(t); return t; }
+
+// ═══════════════════════════
+// COMPONENT STATE
+// ═══════════════════════════
+function setEvse(n,status) {
+  const col = {free:'#34d399',charging:'#60a5fa',error:'#f87171',busy:'#475569',prep:'#fbbf24'}[status]||'#475569';
+  const lbl = {free:'frei',charging:'lädt ⚡',error:'FEHLER',busy:'belegt',prep:'bereit...'}[status]||status;
+  const dot = document.getElementById(`evse${n}-dot`);
+  const txt = document.getElementById(`evse${n}-lbl`);
+  if(dot){dot.setAttribute('fill',col); dot.style.animation = status==='error'?'errFlash .8s infinite':'';}
+  if(txt) txt.textContent = lbl;
+}
+function setEvDot(status) {
+  const col = {bereit:'#34d399',lädt:'#60a5fa',verbunden:'#fbbf24'}[status]||'#34d399';
+  document.getElementById('ev-dot').setAttribute('fill',col);
+  document.getElementById('ev-lbl').textContent = status;
+}
+function setBat(pct) {
+  batLevel = pct;
+  const w = Math.round(pct/100*38);
+  document.getElementById('bat-fill').setAttribute('width',w);
+  const col = pct>60?'url(#batGrad)':pct>30?'#fbbf24':'#f87171';
+  document.getElementById('bat-fill').setAttribute('fill',col);
+  document.getElementById('bat-pct').textContent = pct+'%';
+  document.getElementById('bat-pct').setAttribute('fill',pct>60?'#34d399':pct>30?'#fbbf24':'#f87171');
+}
+function setCable(connected) {
+  const c = connected ? '#60a5fa' : '#1e3050';
+  document.getElementById('cable').setAttribute('stroke',c);
+  document.getElementById('plug').setAttribute('fill',c);
+  document.getElementById('charge-port').setAttribute('stroke',c);
+}
+function animLines(on) {
+  ['al-ev-cp','al-cp-net','al-net-be'].forEach(id=>{
+    document.getElementById(id).style.display = on ? '' : 'none';
+  });
+}
+
+// ═══════════════════════════
+// STOP
+// ═══════════════════════════
+function stopAll() {
+  timers.forEach(clearTimeout); timers=[];
+  if(loopTimer){clearTimeout(loopTimer);loopTimer=null;}
+  document.getElementById('pkts').innerHTML='';
+  animLines(false);
+  document.querySelectorAll('.scenario-btn').forEach(b=>b.classList.remove('active'));
+  scenario=-1;
+  setStep('💤','Bereit – wähle ein Szenario aus','',undefined);
+  document.getElementById('svgtitle').setAttribute('fill','#1e3050');
+  document.getElementById('svgtitle').textContent='← Wähle ein Szenario aus';
+  document.getElementById('step-dots').innerHTML='';
+  setEvse(1,'free'); setEvse(2,'busy');
+  setEvDot('bereit'); setCable(false); setBat(60);
+  document.getElementById('be-dot').setAttribute('fill','#34d399');
+}
+
+function runScenario(idx) {
+  stopAll();
+  scenario=idx;
+  document.getElementById(`btn-${idx}`).classList.add('active');
+  animLines(true);
+  [scenarioBoot,scenarioHeartbeat,scenarioStart,scenarioStop,scenarioError][idx]();
+}
+
+// ═════════════════════════════════════════════
+// SZENARIO 0 – Ladesäule startet auf
+// ═════════════════════════════════════════════
+function scenarioBoot() {
+  initDots(4);
+  const gap = ms(STEP_GAP);
+  const pktD = ms(PKT_DUR)*2 + 200;
+
+  setStep('🔌','Die Ladestation wird eingeschaltet …','Genau wie ein Handy nach dem Einschalten nach Netz sucht.',0);
+  logCard('info','🔌','Die Ladesäule startet',
+    'Jemand hat die Ladestation eingeschaltet – oder sie ist nach einem Stromausfall wieder da.',
+    'Als erstes muss sie dem zentralen Server mitteilen: „Hallo, ich bin wieder online!"','');
+
+  sched(gap, ()=>{
+    setStep('📤','Ladesäule schickt eine Begrüßungsnachricht ans Backend','Das ist wie ein „Hallo, ich bin da!" beim ersten Einschalten.',1);
+    req('Hallo! Ich bin da', 0, null);
+    logCard('req','📤','Begrüßungsnachricht (BootNotification)',
+      '🏭 Ladesäule → ☁️ Server: „Hallo! Ich bin Modell CP-2000 von AcmeCo und bin gerade gestartet."',
+      'Die Ladestation stellt sich vor: Hersteller, Modell und Software-Version. So weiß der Server, mit wem er es zu tun hat.',
+      '[2,"001","BootNotification",{"chargePointModel":"CP-2000","chargePointVendor":"AcmeCo","firmwareVersion":"3.1.2"}]');
+  });
+
+  sched(gap + pktD, ()=>{
+    setStep('📥','Server antwortet: „Willkommen, alles okay!"','Die Verbindung steht – wie ein Handshake.',2);
+    res('Willkommen! ✓', 0, null);
+    logCard('res','📥','Server-Antwort: Akzeptiert',
+      '☁️ Server → 🏭 Ladesäule: „Alles klar! Es ist jetzt 10:00 Uhr. Melde dich alle 5 Minuten."',
+      'Der Server bestätigt: Alles gut. Er teilt auch die genaue Uhrzeit mit, damit die Ladestation ihre interne Uhr synchronisiert.',
+      '[3,"001",{"status":"Accepted","currentTime":"2026-03-10T10:00:00Z","heartbeatInterval":300}]');
+  });
+
+  sched(gap + pktD*2, ()=>{
+    setStep('📊','Ladesäule meldet den Zustand ihrer Ladepunkte','Damit weiß der Server sofort, ob Plätze frei sind.',3);
+    req('Ladepunkt 1: frei', 0, null);
+    setEvse(1,'free');
+    logCard('req','📊','Status der Ladepunkte gemeldet',
+      '🏭 Ladesäule → ☁️ Server: „Ladepunkt 1 ist frei und bereit."',
+      'So kann der Server in der App anzeigen, welche Ladesäulen gerade verfügbar sind.',
+      '[2,"002","StatusNotification",{"connectorId":1,"status":"Available","errorCode":"NoError"}]');
+  });
+
+  sched(gap + pktD*3, ()=>{
+    setStep('✅','Verbindungsaufbau erfolgreich – die Ladesäule ist online!','Ab jetzt kann ein Fahrzeug laden.',3);
+    res('Verstanden ✓', 0, ()=>{
+      setStep('✅','Fertig! Die Ladestation ist online und bereit.','Alle 5 Minuten sendet sie ein Lebenszeichen.',3);
+      document.getElementById('dot3').className='step-dot done';
+      // Auto-repeat
+      loopTimer = setTimeout(()=>{ if(scenario===0) scenarioBoot(); }, ms(5000));
+    });
+    logCard('res','✅','Alles erledigt – Ladesäule ist bereit!',
+      '☁️ Server → 🏭 Ladesäule: „Status notiert."',
+      'Die Ladestation ist jetzt vollständig verbunden. In der App erscheint sie als „verfügbar".',
+      '[3,"002",{}]');
+  });
+}
+
+// ═════════════════════════════════════════════
+// SZENARIO 1 – Lebenszeichen (Heartbeat)
+// ═════════════════════════════════════════════
+function scenarioHeartbeat() {
+  initDots(2);
+  let count = 0;
+  const gap = ms(STEP_GAP);
+  const pktD = ms(PKT_DUR)*2 + 200;
+
+  function beat() {
+    if(scenario!==1) return;
+    count++;
+    setStep('💓',`Lebenszeichen #${count} wird gesendet …`,`Alle 5 Minuten schickt die Ladesäule ein „Bin noch da!"`,0);
+    if(count===1) logCard('info','💓','Was ist ein Lebenszeichen (Heartbeat)?',
+      'Stell dir vor, du schickst jemandem alle 5 Minuten eine SMS: „Bin noch da!" – genau das macht die Ladestation.',
+      'Antwortet der Server nicht mehr, weiß die Ladestation, dass die Verbindung unterbrochen ist.',
+      '');
+
+    req(`💓 Bin da! (#${count})`, 0, null);
+    logCard('req','💓',`Lebenszeichen #${count} gesendet`,
+      `🏭 Ladesäule → ☁️ Server: „Hallo, ich bin noch aktiv!" (Nachricht Nummer ${count})`,
+      'Das ist vollkommen normal – jede Ladestation macht das automatisch im Hintergrund.',
+      `[2,"hb${count}","Heartbeat",{}]`);
+
+    sched(pktD, ()=>{
+      if(scenario!==1) return;
+      res(`✓ Uhrzeit sync`, 0, null);
+      logCard('res','⏰',`Server antwortet auf Lebenszeichen #${count}`,
+        `☁️ Server → 🏭 Ladesäule: „Ich höre dich! Es ist jetzt ${new Date().toLocaleTimeString('de-DE')} Uhr."`,
+        'Als Bonus teilt der Server die aktuelle Uhrzeit mit, damit die Ladestation immer die richtige Zeit kennt.',
+        `[3,"hb${count}",{"currentTime":"${new Date().toISOString()}"}]`);
+      setStep('✅',`Lebenszeichen #${count} bestätigt!`,`Nächstes Lebenszeichen in 5 Sekunden …`,1);
+      document.getElementById('dot0').className='step-dot done';
+      document.getElementById('dot1').className='step-dot done';
+      // reset for next
+      setTimeout(()=>{
+        document.getElementById('dot0').className='step-dot';
+        document.getElementById('dot1').className='step-dot';
+      }, ms(3000));
+      loopTimer = setTimeout(beat, ms(5000));
+    });
+  }
+  beat();
+}
+
+// ═════════════════════════════════════════════
+// SZENARIO 2 – Auto anstecken & laden
+// ═════════════════════════════════════════════
+function scenarioStart() {
+  initDots(6);
+  const gap = ms(STEP_GAP);
+  const pktD = ms(PKT_DUR)*2 + 200;
+  setBat(32);
+
+  setStep('🚗','Das Auto fährt vor …','Der Fahrer sucht sich einen freien Ladepunkt.',0);
+  logCard('info','🚗','Der Ladevorgang beginnt',
+    'Ein Elektroauto mit fast leerem Akku (32%) fährt an die Ladestation. Jetzt passiert einiges im Hintergrund!',
+    'Die Ladestation und der Server tauschen mehrere Nachrichten aus, bevor der erste Strom fließt.','');
+
+  sched(gap, ()=>{
+    setStep('🔌','Fahrer steckt das Ladekabel ein','Der Ladepunkt erkennt sofort, dass ein Auto angeschlossen ist.',1);
+    setCable(true); setEvse(1,'prep'); setEvDot('verbunden');
+    logCard('info','🔌','Kabel eingesteckt',
+      'Der Fahrer hat das Kabel in die Ladesäule und ins Auto gesteckt. Die Säule merkt das sofort.',
+      'Über ein einfaches Signal (PWM) erkennt die Ladestation, dass ein Fahrzeug angeschlossen ist.','');
+  });
+
+  sched(gap*2, ()=>{
+    setStep('💳','Fahrer hält seine RFID-Karte an den Leser …','Oder er öffnet die Lade-App auf dem Handy.',2);
+    logCard('info','💳','Wer bist du? – Nutzeridentifikation',
+      'Der Fahrer hält seine Ladekarte (RFID) an den Leser. Jede Karte hat eine eindeutige Nummer – wie eine Ausweisnummer.',
+      'Alternativ geht das auch per App, QR-Code oder Kreditkarte.','');
+  });
+
+  sched(gap*2 + ms(2000), ()=>{
+    setStep('🔍','Ladestation fragt den Server: Darf dieser Nutzer laden?','Genau wie beim Kreditkarten-Check im Supermarkt.',2);
+    req('Darf er laden? →', 0, null);
+    logCard('req','🔍','Berechtigungsprüfung (Authorize)',
+      '🏭 Ladesäule → ☁️ Server: „Ist die Karte RFID-A1B2C3 berechtigt zu laden?"',
+      'Wie beim Bezahlen mit Karte: Die Ladestation fragt beim Server nach, ob der Nutzer wirklich zahlen kann.',
+      '[2,"003","Authorize",{"idTag":"RFID-A1B2C3"}]');
+  });
+
+  sched(gap*2 + ms(2000) + pktD, ()=>{
+    setStep('✅','Server antwortet: Ja, er darf laden!','Autorisierung erfolgreich.',3);
+    res('Ja, er darf! ✓', 0, null);
+    logCard('res','✅','Autorisierung erfolgreich',
+      '☁️ Server → 🏭 Ladesäule: „Ja! Diese Karte ist gültig. Ladevorgang freigegeben."',
+      'Wäre die Karte gesperrt oder das Guthaben leer, käme hier eine Ablehnung.',
+      '[3,"003",{"idTagInfo":{"status":"Accepted","expiryDate":"2026-12-31"}}]');
+  });
+
+  sched(gap*3 + ms(2000) + pktD, ()=>{
+    setStep('⚡','Ladevorgang startet! Strom fließt ins Auto.',`Aktueller Akku: ${batLevel}% – wird jetzt aufgeladen.`,4);
+    req('Ladestart! ⚡', 0, null);
+    setEvse(1,'charging'); setEvDot('lädt');
+    logCard('req','⚡','Ladestart-Meldung (StartTransaction)',
+      `🏭 Ladesäule → ☁️ Server: „Ladevorgang gestartet! Zählerstand beim Start: ${batLevel}%."`,
+      'Jetzt beginnt die Abrechnung. Der Server notiert genau, wann und wie viel Strom geflossen ist.',
+      `[2,"004","StartTransaction",{"connectorId":1,"idTag":"RFID-A1B2C3","meterStart":12450,"timestamp":"${new Date().toISOString()}"}]`);
+  });
+
+  sched(gap*4 + ms(2000) + pktD, ()=>{
+    res('Transaktion #9001 ✓', 0, ()=>{
+      logCard('res','🧾','Server bestätigt Ladestart',
+        '☁️ Server → 🏭 Ladesäule: „Alles notiert! Transaktion Nr. 9001 läuft."',
+        'Der Server vergibt eine Transaktionsnummer – ähnlich wie eine Quittungsnummer beim Einkaufen.',
+        '[3,"004",{"idTagInfo":{"status":"Accepted"},"transactionId":9001}]');
+      setStep('🔋','Laden läuft! Die Batterie füllt sich …','Akku: 32% → wird auf ~80% aufgeladen.',5);
+      // Animate battery
+      let pct = 32;
+      const chargeInt = setInterval(()=>{
+        if(scenario!==2||pct>=80){clearInterval(chargeInt);return;}
+        pct += 1; setBat(pct);
+      }, ms(400));
+      timers.push(0);
+      document.getElementById('dot5').className='step-dot active';
+
+      // MeterValues after a bit
+      loopTimer = setTimeout(()=>{
+        if(scenario!==2) return;
+        req('Messwert: 7,4 kW', 0, null);
+        logCard('req','📊','Aktueller Energieverbrauch (MeterValues)',
+          '🏭 Ladesäule → ☁️ Server: „Gerade fließen 7,4 Kilowatt – entspricht ca. 30 km Reichweite pro Stunde."',
+          'Die Ladestation sendet regelmäßig den aktuellen Stromverbrauch. So kann der Nutzer in der App den Fortschritt sehen.',
+          '[2,"005","MeterValues",{"connectorId":1,"transactionId":9001,"meterValue":[{"sampledValue":[{"value":"7.4","unit":"kW"}]}]}]');
+        sched(pktD, ()=>res('OK ✓', 0, null));
+      }, ms(8000));
+    });
+  });
+}
+
+// ═════════════════════════════════════════════
+// SZENARIO 3 – Laden beenden & zahlen
+// ═════════════════════════════════════════════
+function scenarioStop() {
+  initDots(4);
+  const gap = ms(STEP_GAP);
+  const pktD = ms(PKT_DUR)*2 + 200;
+  setBat(81); setEvse(1,'charging'); setEvDot('lädt'); setCable(true);
+
+  setStep('🛑','Der Fahrer möchte den Ladevorgang beenden …','Akku ist bei 81% – das reicht.',0);
+  logCard('info','🛑','Ladevorgang wird beendet',
+    'Der Fahrer hält seine RFID-Karte erneut ans Lesegerät oder drückt den Stopp-Knopf in der App.',
+    'Transaktion #9001 läuft noch. Jetzt muss sie sauber beendet werden.','');
+
+  sched(gap, ()=>{
+    setStep('📤','Ladestation schickt die Abschlussrechnung','Wie der Kassenzettel am Ende des Einkaufs.',1);
+    req('Abschluss senden', 0, null);
+    setEvse(1,'prep');
+    logCard('req','📤','Ladevorgang-Abschluss (StopTransaction)',
+      '🏭 Ladesäule → ☁️ Server: „Ladevorgang beendet! Gesamtverbrauch: 12,4 kWh."',
+      'Die Ladestation meldet: Start-Zählerstand, End-Zählerstand und Grund des Stopps. Daraus wird die Rechnung berechnet.',
+      '[2,"006","StopTransaction",{"transactionId":9001,"idTag":"RFID-A1B2C3","meterStop":24850,"timestamp":"'+new Date().toISOString()+'","reason":"Local"}]');
+  });
+
+  sched(gap + pktD, ()=>{
+    setStep('🧮','Server berechnet die Kosten …','12,4 kWh × 0,45 €/kWh = 5,58 €',2);
+    res('Abgerechnet ✓', 0, null);
+    logCard('res','🧮','Abrechnung erstellt',
+      '☁️ Server → 🏭 Ladesäule: „Transaktion #9001 abgeschlossen. Kosten: 5,58 €. Rechnung wird per App zugestellt."',
+      '12,4 kWh verbraucht × 0,45 €/kWh = 5,58 € – der Betrag wird automatisch abgebucht oder per Rechnung zugesandt.',
+      '[3,"006",{"idTagInfo":{"status":"Accepted"}}]');
+  });
+
+  sched(gap*2 + pktD, ()=>{
+    setStep('🔌','Kabel wird gezogen – Ladepunkt wieder frei',`Akku jetzt bei ${batLevel}% – genug für ca. 300 km.`,3);
+    setCable(false); setEvse(1,'free'); setEvDot('bereit');
+    req('Ladepunkt wieder frei', 0, null);
+    logCard('req','🔓','Ladepunkt gibt sich frei (StatusNotification)',
+      '🏭 Ladesäule → ☁️ Server: „Kabel wurde gezogen. Ladepunkt 1 ist wieder für andere frei."',
+      'In der App wird der Ladepunkt sofort als „verfügbar" angezeigt – andere Nutzer können ihn buchen.',
+      '[2,"007","StatusNotification",{"connectorId":1,"status":"Available","errorCode":"NoError"}]');
+  });
+
+  sched(gap*2 + pktD*2, ()=>{
+    res('Verstanden ✓', 0, ()=>{
+      setStep('🎉','Fertig! Laden und Bezahlen abgeschlossen.','Quittung kommt per App oder E-Mail.',3);
+      document.getElementById('dot3').className='step-dot done';
+      loopTimer = setTimeout(()=>{ if(scenario===3) scenarioStop(); }, ms(6000));
+    });
+    logCard('res','🎉','Alles erledigt!',
+      '☁️ Server → 🏭 Ladesäule: „Alles notiert. Danke!"',
+      'Der Fahrer bekommt eine Quittung. Der Ladepunkt ist wieder frei. Perfekt abgelaufen.',
+      '[3,"007",{}]');
+  });
+}
+
+// ═════════════════════════════════════════════
+// SZENARIO 4 – Wenn etwas schiefgeht
+// ═════════════════════════════════════════════
+function scenarioError() {
+  initDots(4);
+  const gap = ms(STEP_GAP);
+  const pktD = ms(PKT_DUR)*2 + 200;
+
+  setStep('⚠️','Achtung – ein Fehler wurde erkannt!','Das passiert selten, aber der Server wird sofort informiert.',0);
+  logCard('info','⚠️','Was passiert bei einem Fehler?',
+    'Manchmal gibt es technische Probleme – z.B. überhitzt ein Teil der Ladesäule. Dann greift ein automatischer Schutz.',
+    'Das System schaltet sich selbst sicher ab und ruft sofort Hilfe – also informiert den Techniker-Dienst.','');
+
+  sched(gap, ()=>{
+    setStep('🌡️','Überhitzung erkannt – Ladesäule schaltet sich sicher ab','Sicherheitsmechanismus aktiv.',1);
+    err('FEHLER gemeldet!', 0, null);
+    setEvse(1,'error'); document.getElementById('be-dot').setAttribute('fill','#f87171');
+    logCard('err','🌡️','Fehler erkannt: Überhitzung',
+      '🏭 Ladesäule → ☁️ Server: „Achtung! Der Stecker ist zu heiß (95°C). Ich schalte mich ab."',
+      'Die Ladesäule hat einen Temperatursensor. Bei Überhitzung stoppt sie automatisch, um einen Brand zu verhindern.',
+      '[2,"008","StatusNotification",{"connectorId":1,"status":"Faulted","errorCode":"ConnectorLockFailure","info":"Temperature:95C"}]');
+  });
+
+  sched(gap + pktD, ()=>{
+    setStep('🚨','Server schlägt Alarm – Techniker wird benachrichtigt','Automatisch, ohne dass jemand etwas tun muss.',2);
+    res('Alarm ausgelöst!', 0, null);
+    logCard('err','🚨','Server löst Alarm aus',
+      '☁️ Server → Techniker-App: „Ladesäule CP-001, Ladepunkt 1: Überhitzung! Bitte sofort prüfen."',
+      'Der Betreiber bekommt eine Push-Nachricht, E-Mail oder SMS. Ein Ticket wird automatisch erstellt.',
+      '[3,"008",{}]  + interner Alert an Wartungs-Team');
+  });
+
+  sched(gap*2 + pktD, ()=>{
+    setStep('🔒','Server sperrt den Ladepunkt – bis ein Techniker kommt','Kein weiterer Ladevorgang möglich.',3);
+    push('Ladepunkt sperren', 0, null);
+    logCard('info','🔒','Fernsteuerung: Ladepunkt gesperrt',
+      '☁️ Server → 🏭 Ladesäule: „Schalte Ladepunkt 1 auf gesperrt. Kein weiteres Laden erlaubt."',
+      'Das Backend kann die Ladestation aus der Ferne steuern – wie ein Fernzugriff auf einen Computer.',
+      '[2,"009","ChangeAvailability",{"connectorId":1,"type":"Inoperative"}]');
+  });
+
+  sched(gap*2 + pktD*2, ()=>{
+    err('Gesperrt ✓', 0, ()=>{
+      setStep('🔧','Warten auf den Techniker …','Nach der Reparatur wird der Ladepunkt wieder freigegeben.',3);
+      document.getElementById('dot3').className='step-dot done';
+      logCard('err','🔧','Ladesäule außer Betrieb',
+        '🏭 Ladesäule bestätigt: „Bin gesperrt. Warte auf Wartung."',
+        'Die Säule leuchtet jetzt rot oder zeigt eine Fehlermeldung am Display. In der App erscheint sie als „nicht verfügbar".',
+        '[3,"009",{"status":"Accepted"}]');
+      loopTimer = setTimeout(()=>{ if(scenario===4) scenarioError(); }, ms(7000));
+    });
+  });
+}
+
+// ═════════════════════
+// INIT
+// ═════════════════════
+window.addEventListener('DOMContentLoaded', ()=>{
+  setBat(60); setEvse(1,'free'); setEvse(2,'busy');
+});
+</script>
+</body>
+</html>
