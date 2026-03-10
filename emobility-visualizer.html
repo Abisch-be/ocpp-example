@@ -147,6 +147,7 @@ header {
 .log-panel {
   background: var(--surface); border-left: 1px solid var(--border);
   display: flex; flex-direction: column; overflow: hidden;
+  min-height: 0;
 }
 .log-header {
   padding: 14px 18px; border-bottom: 1px solid var(--border);
@@ -158,7 +159,7 @@ header {
 .log-clear { font-size: 11px; color: var(--text-dim); cursor: pointer; padding: 3px 10px; border-radius: 5px; border: 1px solid var(--border); background: none; transition: all .2s; font-family: var(--sans); }
 .log-clear:hover { color: var(--red); border-color: var(--red); }
 
-.log-messages { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 10px; scroll-behavior: smooth; }
+.log-messages { flex: 1; overflow-y: auto; min-height: 0; padding: 12px; display: flex; flex-direction: column; gap: 10px; scroll-behavior: smooth; }
 .log-messages::-webkit-scrollbar { width: 4px; }
 .log-messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 
@@ -309,11 +310,11 @@ header {
 <!-- SCENARIO BAR -->
 <div class="scenario-bar">
   <span class="scenario-label">Szenario:</span>
-  <button class="scenario-btn" id="btn-0" onclick="runScenario(0)">1️⃣ Ladesäule startet auf</button>
-  <button class="scenario-btn" id="btn-1" onclick="runScenario(1)">2️⃣ Lebenszeichen senden</button>
-  <button class="scenario-btn" id="btn-2" onclick="runScenario(2)">3️⃣ Auto anstecken &amp; laden</button>
-  <button class="scenario-btn" id="btn-3" onclick="runScenario(3)">4️⃣ Laden beenden &amp; zahlen</button>
-  <button class="scenario-btn s-red" id="btn-4" onclick="runScenario(4)">5️⃣ Wenn etwas schiefgeht</button>
+  <button class="scenario-btn" id="btn-0" onclick="runScenario(0)">1️⃣ Boot Notification</button>
+  <button class="scenario-btn" id="btn-1" onclick="runScenario(1)">2️⃣ Heartbeat</button>
+  <button class="scenario-btn" id="btn-2" onclick="runScenario(2)">3️⃣ Start Transaction</button>
+  <button class="scenario-btn" id="btn-3" onclick="runScenario(3)">4️⃣ Stop Transaction</button>
+  <button class="scenario-btn s-red" id="btn-4" onclick="runScenario(4)">5️⃣ Faulted State</button>
   <button class="stop-btn" onclick="stopAll()">✕ Stopp</button>
 </div>
 
